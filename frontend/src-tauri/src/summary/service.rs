@@ -543,7 +543,11 @@ impl SummaryService {
             }),
         };
 
-        let client = reqwest::Client::new();
+        // Send a User-Agent: Cloudflare-fronted APIs (e.g. Nous Research) reject requests without one
+        let client = reqwest::Client::builder()
+            .user_agent(concat!("Meetily/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
         let result = generate_meeting_summary(
             &client,
             &provider,

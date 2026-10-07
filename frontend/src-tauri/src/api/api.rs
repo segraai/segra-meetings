@@ -1305,6 +1305,7 @@ pub async fn api_test_custom_openai_connection<R: Runtime>(
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
+        .user_agent(concat!("Meetily/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
 
