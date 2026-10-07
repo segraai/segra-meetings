@@ -102,14 +102,8 @@ fn toggle_recording_handler<R: Runtime>(app: &AppHandle<R>) {
                 }
             }
         } else {
-            // Immediately show starting state
-            set_tray_state(&app_clone, RecordingState::Starting);
-
             log::info!("Emitting start recording event from tray");
-            if let Some(window) = app_clone.get_webview_window("main") {
-                let _ = window.eval("sessionStorage.setItem('autoStartRecording', 'true')"); // Set the flag to start recording automatically
-                let _ = window.eval("window.location.assign('/')");
-            }
+            request_start_recording(&app_clone, None);
         }
     });
 }
@@ -149,7 +143,24 @@ fn resume_recording_handler<R: Runtime>(app: &AppHandle<R>) {
     });
 }
 
-fn stop_recording_handler<R: Runtime>(app: &AppHandle<R>) {
+/// Starts a recording through the main window's normal start flow (device selection,
+/// model checks), optionally with a meeting title instead of the generated one.
+pub fn request_start_recording<R: Runtime>(app: &AppHandle<R>, meeting_title: Option<&str>) {
+    // Immediately show starting state
+    set_tray_state(app, RecordingState::Starting);
+
+    if let Some(window) = app.get_webview_window("main") {
+        if let Some(title) = meeting_title {
+            // JSON string literal is a valid, escaped JS string literal
+            let title = serde_json::to_string(title).unwrap_or_else(|_| "\"\"".to_string());
+            let _ = window.eval(&format!("sessionStorage.setItem('autoStartMeetingTitle', {})", title));
+        }
+        let _ = window.eval("sessionStorage.setItem('autoStartRecording', 'true')"); // Set the flag to start recording automatically
+        let _ = window.eval("window.location.assign('/')");
+    }
+}
+
+pub fn stop_recording_handler<R: Runtime>(app: &AppHandle<R>) {
     // Immediately show stopping state
     set_tray_state(app, RecordingState::Stopping);
 

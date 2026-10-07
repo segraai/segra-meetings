@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { ArrowLeft, Settings2, Mic, Database as DatabaseIcon, SparkleIcon, FlaskConical } from 'lucide-react';
+import { ArrowLeft, Settings2, Mic, Database as DatabaseIcon, SparkleIcon, FlaskConical, CalendarDays } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { invoke } from '@tauri-apps/api/core';
 import { motion } from 'framer-motion';
@@ -10,12 +10,14 @@ import { RecordingSettings } from '@/components/RecordingSettings';
 import { PreferenceSettings } from '@/components/PreferenceSettings';
 import { SummaryModelSettings } from '@/components/SummaryModelSettings';
 import { BetaSettings } from '@/components/BetaSettings';
+import { CalendarSettings } from '@/components/CalendarSettings';
 import { useConfig } from '@/contexts/ConfigContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 // Tabs configuration (constant)
 const TABS = [
   { value: 'general', label: 'General', icon: Settings2 },
+  { value: 'calendar', label: 'Calendar & Meetings', icon: CalendarDays },
   { value: 'recording', label: 'Recordings', icon: Mic },
   { value: 'Transcriptionmodels', label: 'Transcription', icon: DatabaseIcon },
   { value: 'summaryModels', label: 'Summary', icon: SparkleIcon },
@@ -30,6 +32,14 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general');
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
+
+  // Allow deep links like /settings?tab=calendar
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab');
+    if (tab && TABS.some(t => t.value === tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
 
   // Load saved transcript configuration on mount
   useEffect(() => {
@@ -111,6 +121,9 @@ export default function SettingsPage() {
 
             <TabsContent value="general">
               <PreferenceSettings />
+            </TabsContent>
+            <TabsContent value="calendar">
+              <CalendarSettings />
             </TabsContent>
             <TabsContent value="recording">
               <RecordingSettings />

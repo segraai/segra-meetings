@@ -74,6 +74,17 @@
                             ]
                         }
                     ]
+                },
+                {
+                    "identifier": "meeting-popup",
+                    "description": "Meeting reminder / call detected popup",
+                    "windows": [
+                        "meeting-popup"
+                    ],
+                    "permissions": [
+                        "core:event:default",
+                        "core:window:default"
+                    ]
                 }
             ]
         }

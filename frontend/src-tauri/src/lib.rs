@@ -47,6 +47,8 @@ pub mod onboarding;
 pub mod openai;
 pub mod anthropic;
 pub mod groq;
+pub mod knowledge;
+pub mod meeting_assistant;
 pub mod openrouter;
 pub mod parakeet_engine;
 pub mod state;
@@ -585,6 +587,9 @@ pub fn run() {
             })
             .expect("Failed to initialize database");
 
+            // Calendar sync, meeting reminders and call detection (needs the database)
+            meeting_assistant::start(&_app.handle());
+
             // Initialize bundled templates directory for dynamic template discovery
             log::info!("Initializing bundled templates directory...");
             if let Ok(resource_path) = _app.handle().path().resource_dir() {
@@ -714,6 +719,17 @@ pub fn run() {
             groq::groq::get_groq_models,
             api::api_get_meetings,
             api::api_search_transcripts,
+            knowledge::api_list_meetings_overview,
+            knowledge::api_search_meetings,
+            knowledge::api_ask_meetings,
+            meeting_assistant::commands::meeting_assistant_get_settings,
+            meeting_assistant::commands::meeting_assistant_save_settings,
+            meeting_assistant::commands::calendar_get_status,
+            meeting_assistant::commands::calendar_connect,
+            meeting_assistant::commands::calendar_disconnect,
+            meeting_assistant::commands::calendar_sync_now,
+            meeting_assistant::commands::calendar_list_events,
+            meeting_assistant::commands::meeting_popup_action,
             api::api_get_profile,
             api::api_save_profile,
             api::api_update_profile,

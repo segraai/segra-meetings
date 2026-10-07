@@ -9,6 +9,7 @@ import AnalyticsProvider from '@/components/AnalyticsProvider'
 import { Toaster, toast } from 'sonner'
 import "sonner/dist/styles.css"
 import { useState, useEffect, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { listen, UnlistenFn } from '@tauri-apps/api/event'
 import { invoke } from '@tauri-apps/api/core'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -64,6 +65,27 @@ function ConditionalImportDialog({
 // export { metadata } from './metadata'
 
 export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const pathname = usePathname()
+
+  // The meeting popup window renders on its own, without the app shell
+  if (pathname?.startsWith('/popup')) {
+    return (
+      <html lang="en">
+        <body className={`${sourceSans3.variable} font-sans antialiased bg-transparent`}>
+          {children}
+        </body>
+      </html>
+    )
+  }
+
+  return <AppLayout>{children}</AppLayout>
+}
+
+function AppLayout({
   children,
 }: {
   children: React.ReactNode
