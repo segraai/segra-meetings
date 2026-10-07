@@ -1,3 +1,4 @@
+import { getParagraphStarts } from '@/lib/transcript-paragraphs';
 import { useCallback, RefObject } from 'react';
 import { MeetingSummary, Transcript } from '@/types';
 import { BlockNoteSummaryViewRef } from '@/components/AISummary/BlockNoteSummaryView';
@@ -86,9 +87,16 @@ export function useCopyOperations({
 
     const header = `# Transcript of the Meeting: ${meeting.id} - ${meetingTitle ?? meeting.title}\n\n`;
     const date = `## Date: ${new Date(meeting.created_at).toLocaleDateString()}\n\n`;
+    // Group into paragraphs so the copy isn't a timestamp on every line
+    const paragraphStarts = getParagraphStarts(
+      allTranscripts.map(t => ({ id: t.id, start: t.audio_start_time, end: t.audio_end_time }))
+    );
     const fullTranscript = allTranscripts
-      .map(t => `${formatTime(t.audio_start_time, t.timestamp)} ${t.text}  `)
-      .join('\n');
+      .map(t => paragraphStarts.has(t.id)
+        ? `\n${formatTime(t.audio_start_time, t.timestamp)} ${t.text}`
+        : t.text)
+      .join(' ')
+      .trim();
 
     await navigator.clipboard.writeText(header + date + fullTranscript);
     toast.success("Transcript copied to clipboard");

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useReducer, startTransition, useEffect, useState, memo } from "react";
+import { useCallback, useRef, useReducer, startTransition, useEffect, useState, memo, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useAutoScroll } from "@/hooks/useAutoScroll";
 import { useTranscriptStreaming } from "@/hooks/useTranscriptStreaming";
@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { RecordingStatusBar } from "./RecordingStatusBar";
 import { motion, AnimatePresence } from "framer-motion";
 import { TranscriptSegmentData } from "@/types";
+import { formatRecordingTime, getParagraphStarts } from "@/lib/transcript-paragraphs";
 
 export interface VirtualizedTranscriptViewProps {
     /** Transcript segments to display */
@@ -39,17 +40,6 @@ export interface VirtualizedTranscriptViewProps {
 // Threshold for enabling virtualization (below this, use simple rendering)
 const VIRTUALIZATION_THRESHOLD = 10;
 
-// Helper function to format seconds as recording-relative time [MM:SS]
-function formatRecordingTime(seconds: number | undefined): string {
-    if (seconds === undefined) return '[--:--]';
-
-    const totalSeconds = Math.floor(seconds);
-    const minutes = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-
-    return `[${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}]`;
-}
-
 // Helper function to remove filler words and repetitions
 function cleanStopWords(text: string): string {
     const stopWords = ['uh', 'um', 'er', 'ah', 'hmm', 'hm', 'eh', 'oh'];
@@ -71,6 +61,7 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence,
     isStreaming,
     showConfidence,
+    showTimestamp,
 }: {
     id: string;
     timestamp: number;
@@ -78,24 +69,29 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence?: number;
     isStreaming: boolean;
     showConfidence: boolean;
+    showTimestamp: boolean;
 }) {
     const displayText = cleanStopWords(text) || (text.trim() === '' ? '[Silence]' : text);
 
     return (
-        <div id={`segment-${id}`} className="mb-3">
+        <div id={`segment-${id}`} className={showTimestamp ? "mt-3 mb-1" : "mb-1"}>
             <div className="flex items-start gap-2">
-                <Tooltip>
-                    <TooltipTrigger>
-                        <span className="text-xs text-gray-400 mt-1 flex-shrink-0 min-w-[50px]">
-                            {formatRecordingTime(timestamp)}
-                        </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        {confidence !== undefined && showConfidence && (
-                            <ConfidenceIndicator confidence={confidence} showIndicator={showConfidence} />
-                        )}
-                    </TooltipContent>
-                </Tooltip>
+                {showTimestamp ? (
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <span className="text-xs text-gray-400 mt-1 flex-shrink-0 min-w-[50px]">
+                                {formatRecordingTime(timestamp)}
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {confidence !== undefined && showConfidence && (
+                                <ConfidenceIndicator confidence={confidence} showIndicator={showConfidence} />
+                            )}
+                        </TooltipContent>
+                    </Tooltip>
+                ) : (
+                    <span className="flex-shrink-0 min-w-[50px]" />
+                )}
                 <div className="flex-1">
                     {isStreaming ? (
                         <div className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2">
@@ -220,6 +216,11 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
         return () => scrollElement.removeEventListener('scroll', handleScroll);
     }, [onLoadMore, hasMore, isLoadingMore, isRecording]);
 
+    const paragraphStarts = useMemo(
+        () => getParagraphStarts(segments.map(s => ({ id: s.id, start: s.timestamp, end: s.endTime }))),
+        [segments]
+    );
+
     // Use simple rendering for small lists, virtualization for large lists
     const useVirtualization = segments.length >= VIRTUALIZATION_THRESHOLD;
 
@@ -296,6 +297,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        showTimestamp={paragraphStarts.has(segment.id)}
                                     />
                                 </div>
                             );
@@ -334,7 +336,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
             ) : (
                 // Simple rendering for small lists (better animations)
                 <>
-                    <div className="space-y-1">
+                    <div>
                         {segments.map((segment) => {
                             const isStreaming = streamingSegmentId === segment.id;
 
@@ -352,6 +354,7 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
+                                        showTimestamp={paragraphStarts.has(segment.id)}
                                     />
                                 </motion.div>
                             );
