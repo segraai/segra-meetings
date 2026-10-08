@@ -1,4 +1,5 @@
 "use client";
+import { MeetingNotesEditor } from '@/components/Notes/MeetingNotesEditor';
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { MeetingSummary, SummaryProcessResponse } from '@/types';
@@ -221,6 +222,9 @@ export default function PageContent({
             />
           }
           summary={
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <MeetingNotesEditor meetingId={meeting.id} />
+            <div className="flex min-h-0 min-w-0 flex-1">
             <SummaryPanel
               meeting={meeting}
               meetingTitle={meetingData.meetingTitle}
@@ -250,6 +254,8 @@ export default function PageContent({
               isModelConfigLoading={isModelConfigLoading}
               onOpenModelSettings={handleRegisterModalOpen}
             />
+            </div>
+            </div>
           }
         />
       </div>

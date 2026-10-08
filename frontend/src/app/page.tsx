@@ -12,6 +12,7 @@ import Analytics from '@/lib/analytics';
 import { SettingsModals } from './_components/SettingsModal';
 import { TranscriptPanel } from './_components/TranscriptPanel';
 import { HomeDashboard } from '@/components/Home/HomeDashboard';
+import { LiveNotesPanel } from '@/components/Notes/LiveNotesPanel';
 import { useModalState } from '@/hooks/useModalState';
 import { useRecordingStateSync } from '@/hooks/useRecordingStateSync';
 import { useRecordingStart } from '@/hooks/useRecordingStart';
@@ -27,6 +28,7 @@ export default function Home() {
   const [isRecording, setIsRecordingState] = useState(false);
   const [barHeights, setBarHeights] = useState(['58%', '76%', '58%']);
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [notesCollapsed, setNotesCollapsed] = useState(false);
 
   // Use contexts for state management
   const { meetingTitle } = useTranscripts();
@@ -217,11 +219,17 @@ export default function Home() {
         {showDashboard ? (
           <HomeDashboard />
         ) : (
-          <TranscriptPanel
-            isProcessingStop={isProcessingStop}
-            isStopping={isStopping}
-            showModal={showModal}
-          />
+          // While recording: your notes on top, live transcript below
+          <div className="flex min-w-0 flex-1 flex-col">
+            <LiveNotesPanel collapsed={notesCollapsed} onToggle={() => setNotesCollapsed(c => !c)} />
+            <div className="flex min-h-0 flex-[3]">
+              <TranscriptPanel
+                isProcessingStop={isProcessingStop}
+                isStopping={isStopping}
+                showModal={showModal}
+              />
+            </div>
+          </div>
         )}
 
         {/* Recording controls - only show when permissions are granted or already recording and not showing status messages */}

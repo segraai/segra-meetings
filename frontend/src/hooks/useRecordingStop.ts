@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { listen } from '@tauri-apps/api/event';
 import { toast } from 'sonner';
+import { invoke } from '@tauri-apps/api/core';
+import { readLiveNotes, clearLiveNotes } from '@/lib/live-notes';
 import { useTranscripts } from '@/contexts/TranscriptContext';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { useRecordingState, RecordingStatus } from '@/contexts/RecordingStateContext';
@@ -263,6 +265,20 @@ export function useRecordingStop(
           if (!meetingId) {
             console.error('No meeting_id in response:', responseData);
             throw new Error('No meeting ID received from save operation');
+          }
+
+          // Store notes typed during the recording with the meeting (before notes generation runs)
+          const liveNotes = readLiveNotes();
+          if (liveNotes.trim()) {
+            try {
+              await invoke('api_save_meeting_notes', { meetingId, notesMarkdown: liveNotes });
+              clearLiveNotes();
+            } catch (error) {
+              console.warn('Failed to save notes taken during the meeting:', error);
+              toast.warning('Could not save your notes', {
+                description: 'They are kept and will be saved with your next recording.',
+              });
+            }
           }
 
           let shouldDetectSummaryLanguage = false;

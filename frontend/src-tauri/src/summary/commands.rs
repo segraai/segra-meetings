@@ -483,7 +483,15 @@ pub async fn api_process_transcript<R: Runtime>(
     );
 
     let pool = state.db_manager.pool().clone();
-    let final_prompt = custom_prompt.unwrap_or_else(|| "".to_string());
+    // Build on the notes the user typed during/after the meeting, if any
+    let user_notes = crate::notes::load(&pool, &m_id).await.unwrap_or_else(|e| {
+        log_warn!("Failed to load user notes for {}: {}", &m_id, e);
+        None
+    });
+    let final_prompt = crate::notes::with_user_notes(
+        &custom_prompt.unwrap_or_default(),
+        user_notes.as_deref(),
+    );
     let final_template_id = template_id.unwrap_or_else(|| "daily_standup".to_string());
 
     // Normalise empty / whitespace-only to None so "" and null behave identically
