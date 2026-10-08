@@ -61,7 +61,8 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence,
     isStreaming,
     showConfidence,
-    showTimestamp,
+    startsParagraph,
+    showTimestamps,
 }: {
     id: string;
     timestamp: number;
@@ -69,14 +70,16 @@ const TranscriptSegment = memo(function TranscriptSegment({
     confidence?: number;
     isStreaming: boolean;
     showConfidence: boolean;
-    showTimestamp: boolean;
+    startsParagraph: boolean;
+    /** False while recording: plain text, no timestamp column */
+    showTimestamps: boolean;
 }) {
     const displayText = cleanStopWords(text) || (text.trim() === '' ? '[Silence]' : text);
 
     return (
-        <div id={`segment-${id}`} className={showTimestamp ? "mt-3 mb-1" : "mb-1"}>
+        <div id={`segment-${id}`} className={startsParagraph ? "mt-3 mb-1" : "mb-1"}>
             <div className="flex items-start gap-2">
-                {showTimestamp ? (
+                {!showTimestamps ? null : startsParagraph ? (
                     <Tooltip>
                         <TooltipTrigger>
                             <span className="text-xs text-gray-400 mt-1 flex-shrink-0 min-w-[50px]">
@@ -297,7 +300,8 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
-                                        showTimestamp={paragraphStarts.has(segment.id)}
+                                        startsParagraph={paragraphStarts.has(segment.id)}
+                                        showTimestamps={!isRecording}
                                     />
                                 </div>
                             );
@@ -354,7 +358,8 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                         confidence={segment.confidence}
                                         isStreaming={isStreaming}
                                         showConfidence={showConfidence}
-                                        showTimestamp={paragraphStarts.has(segment.id)}
+                                        startsParagraph={paragraphStarts.has(segment.id)}
+                                        showTimestamps={!isRecording}
                                     />
                                 </motion.div>
                             );

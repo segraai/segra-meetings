@@ -15,12 +15,18 @@ import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { MeetingsChat } from './MeetingsChat';
 
 const PAST_PAGE_SIZE = 25;
+const UPCOMING_COUNT = 5;
+const UPCOMING_DAYS = 7;
 // A recording counts as an event's notes if it started within this window around the event
 const EVENT_MATCH_LEAD_MS = 15 * 60_000;
 
-type TodayItem =
-  | { kind: 'event'; event: CalendarEvent; meeting?: MeetingOverview; start: Date; end: Date }
-  | { kind: 'meeting'; meeting: MeetingOverview; start: Date };
+interface UpcomingItem {
+  event: CalendarEvent;
+  /** Recording already made for this event (when it is happening now) */
+  meeting?: MeetingOverview;
+  start: Date;
+  end: Date;
+}
 
 function startOfDay(date: Date) {
   const d = new Date(date);
@@ -40,8 +46,10 @@ function formatDuration(seconds: number | null) {
 
 function dayLabel(date: Date, today: Date) {
   const days = Math.round((startOfDay(today).getTime() - startOfDay(date).getTime()) / 86_400_000);
+  if (days === 0) return 'Today';
   if (days === 1) return 'Yesterday';
-  if (days < 7) return date.toLocaleDateString(undefined, { weekday: 'long' });
+  if (days === -1) return 'Tomorrow';
+  if (Math.abs(days) < 7) return date.toLocaleDateString(undefined, { weekday: 'long' });
   return date.toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
@@ -85,9 +93,9 @@ export function HomeDashboard() {
         setEvents([]);
         return;
       }
-      const today = startOfDay(new Date());
-      const tomorrow = new Date(today.getTime() + 86_400_000);
-      setEvents(await meetingAssistantService.listEvents(today, tomorrow));
+      const from = new Date();
+      const to = new Date(from.getTime() + UPCOMING_DAYS * 86_400_000);
+      setEvents(await meetingAssistantService.listEvents(from, to));
     } catch (error) {
       console.error('Failed to load calendar events:', error);
     }
@@ -136,39 +144,37 @@ export function HomeDashboard() {
     router.push(`/meeting-details?id=${id}`);
   };
 
-  const { todayItems, pastGroups, pastCount } = useMemo(() => {
-    const todayStart = startOfDay(now);
-    const todaysMeetings = meetings.filter(m => new Date(m.created_at) >= todayStart);
-    const claimed = new Set<string>();
-
-    const items: TodayItem[] = events
-      .filter(e => !e.is_all_day)
+  const { upcomingGroups, pastGroups, pastCount } = useMemo(() => {
+    const upcoming: UpcomingItem[] = events
+      .filter(e => !e.is_all_day && new Date(e.end_time) > now)
+      .sort((a, b) => a.start_time.localeCompare(b.start_time))
+      .slice(0, UPCOMING_COUNT)
       .map(event => {
         const start = new Date(event.start_time);
         const end = new Date(event.end_time);
-        const meeting = todaysMeetings.find(m => {
+        const meeting = meetings.find(m => {
           const created = new Date(m.created_at).getTime();
-          return !claimed.has(m.id) && created >= start.getTime() - EVENT_MATCH_LEAD_MS && created < end.getTime();
+          return created >= start.getTime() - EVENT_MATCH_LEAD_MS && created < end.getTime();
         });
-        if (meeting) claimed.add(meeting.id);
-        return { kind: 'event' as const, event, meeting, start, end };
+        return { event, meeting, start, end };
       });
-    for (const meeting of todaysMeetings) {
-      if (!claimed.has(meeting.id)) {
-        items.push({ kind: 'meeting', meeting, start: new Date(meeting.created_at) });
-      }
-    }
-    items.sort((a, b) => a.start.getTime() - b.start.getTime());
 
-    const past = meetings.filter(m => new Date(m.created_at) < todayStart);
-    const groups: { label: string; meetings: MeetingOverview[] }[] = [];
-    for (const meeting of past.slice(0, pastLimit)) {
-      const label = dayLabel(new Date(meeting.created_at), now);
-      const last = groups[groups.length - 1];
-      if (last?.label === label) last.meetings.push(meeting);
-      else groups.push({ label, meetings: [meeting] });
-    }
-    return { todayItems: items, pastGroups: groups, pastCount: past.length };
+    const groupByDay = <T,>(items: T[], dateOf: (item: T) => Date) => {
+      const groups: { label: string; items: T[] }[] = [];
+      for (const item of items) {
+        const label = dayLabel(dateOf(item), now);
+        const last = groups[groups.length - 1];
+        if (last?.label === label) last.items.push(item);
+        else groups.push({ label, items: [item] });
+      }
+      return groups;
+    };
+
+    return {
+      upcomingGroups: groupByDay(upcoming, item => item.start),
+      pastGroups: groupByDay(meetings.slice(0, pastLimit), m => new Date(m.created_at)),
+      pastCount: meetings.length,
+    };
   }, [meetings, events, now, pastLimit]);
 
   return (
@@ -229,12 +235,9 @@ export function HomeDashboard() {
             </section>
           ) : (
             <>
-              {/* Today */}
+              {/* Upcoming */}
               <section>
-                <SectionHeading>
-                  Today ·{' '}
-                  {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-                </SectionHeading>
+                <SectionHeading>Upcoming</SectionHeading>
                 {calendarNeedsReconnect && (
                   <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -247,38 +250,36 @@ export function HomeDashboard() {
                     </button>
                   </div>
                 )}
-                {todayItems.length === 0 ? (
+                {upcomingGroups.length === 0 ? (
                   <EmptyState>
                     {calendarConnected === false ? (
                       <>
-                        No meetings recorded today.{' '}
                         <button className="text-blue-600 hover:underline" onClick={() => router.push('/settings?tab=calendar')}>
                           Connect Google Calendar
                         </button>{' '}
-                        to see what&apos;s coming up.
+                        to see your upcoming meetings.
                       </>
                     ) : (
-                      'Nothing on your calendar today.'
+                      `No meetings in the next ${UPCOMING_DAYS} days.`
                     )}
                   </EmptyState>
                 ) : (
-                  <div className="space-y-1">
-                    {todayItems.map(item =>
-                      item.kind === 'event' ? (
-                        <EventRow
-                          key={item.event.id}
-                          item={item}
-                          now={now}
-                          onOpen={() => item.meeting && openMeeting(item.meeting.id, item.meeting.title)}
-                        />
-                      ) : (
-                        <MeetingRow
-                          key={item.meeting.id}
-                          meeting={item.meeting}
-                          onOpen={() => openMeeting(item.meeting.id, item.meeting.title)}
-                        />
-                      )
-                    )}
+                  <div className="space-y-4">
+                    {upcomingGroups.map(group => (
+                      <div key={group.label}>
+                        <p className="mb-1 px-2 text-xs font-medium text-gray-400">{group.label}</p>
+                        <div className="space-y-1">
+                          {group.items.map(item => (
+                            <EventRow
+                              key={item.event.id}
+                              item={item}
+                              now={now}
+                              onOpen={() => item.meeting && openMeeting(item.meeting.id, item.meeting.title)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </section>
@@ -298,7 +299,7 @@ export function HomeDashboard() {
                       <div key={group.label}>
                         <p className="mb-1 px-2 text-xs font-medium text-gray-400">{group.label}</p>
                         <div className="space-y-1">
-                          {group.meetings.map(meeting => (
+                          {group.items.map(meeting => (
                             <MeetingRow
                               key={meeting.id}
                               meeting={meeting}
@@ -365,7 +366,7 @@ function EventRow({
   now,
   onOpen,
 }: {
-  item: Extract<TodayItem, { kind: 'event' }>;
+  item: UpcomingItem;
   now: Date;
   onOpen: () => void;
 }) {
