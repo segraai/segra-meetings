@@ -975,9 +975,6 @@ const Sidebar: React.FC = () => {
               <Settings className="w-4 h-4 mr-2" />
               <span>Settings</span>
             </button>
-            <div className="w-full flex items-center justify-center px-3 py-1 text-xs text-gray-400">
-              v0.4.1
-            </div>
           </div>
         )}
       </div>
