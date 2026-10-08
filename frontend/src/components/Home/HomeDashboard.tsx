@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { listen } from '@tauri-apps/api/event';
-import { AlertTriangle, FileText, Loader2, Mic, Search, Users, Video, X } from 'lucide-react';
+import { AlertTriangle, RefreshCw, FileText, Loader2, Mic, Search, Users, Video, X } from 'lucide-react';
 import {
   CALENDAR_UPDATED_EVENT,
   CalendarEvent,
@@ -13,6 +13,7 @@ import {
 } from '@/services/meetingAssistantService';
 import { useSidebar } from '@/components/Sidebar/SidebarProvider';
 import { MeetingsChat } from './MeetingsChat';
+import { toast } from 'sonner';
 
 const PAST_PAGE_SIZE = 25;
 const UPCOMING_COUNT = 5;
@@ -76,6 +77,7 @@ export function HomeDashboard() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null);
   const [calendarNeedsReconnect, setCalendarNeedsReconnect] = useState(false);
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [pastLimit, setPastLimit] = useState(PAST_PAGE_SIZE);
   const [now, setNow] = useState(() => new Date());
@@ -138,6 +140,19 @@ export function HomeDashboard() {
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
+
+  const syncCalendar = async () => {
+    setIsSyncingCalendar(true);
+    try {
+      await meetingAssistantService.syncCalendar();
+    } catch (error) {
+      toast.error('Calendar sync failed', { description: String(error) });
+    } finally {
+      // Sync emits an update event, but reload anyway so errors also refresh the status
+      await loadEvents();
+      setIsSyncingCalendar(false);
+    }
+  };
 
   const openMeeting = (id: string, title: string) => {
     setCurrentMeeting({ id, title });
@@ -237,7 +252,20 @@ export function HomeDashboard() {
             <>
               {/* Upcoming */}
               <section>
-                <SectionHeading>Upcoming</SectionHeading>
+                <div className="mb-2 flex items-center gap-1 px-2">
+                  <h2 className="text-sm font-semibold text-gray-900">Upcoming</h2>
+                  {calendarConnected && (
+                    <button
+                      onClick={syncCalendar}
+                      disabled={isSyncingCalendar}
+                      className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-blue-600 disabled:opacity-60"
+                      title="Refresh calendar"
+                      aria-label="Refresh calendar"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isSyncingCalendar ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
+                </div>
                 {calendarNeedsReconnect && (
                   <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
