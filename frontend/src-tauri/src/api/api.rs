@@ -1381,4 +1381,63 @@ pub async fn api_test_custom_openai_connection<R: Runtime>(
             }
         }
     }
+}/// Lists model IDs from an OpenAI-compatible endpoint (`GET {endpoint}/models`)
+#[tauri::command]
+pub async fn api_list_custom_openai_models(
+    endpoint: String,
+    api_key: Option<String>,
+) -> Result<Vec<String>, String> {
+    if !endpoint.starts_with("http://") && !endpoint.starts_with("https://") {
+        return Err("Endpoint must start with http:// or https://".to_string());
+    }
+    let url = format!("{}/models", endpoint.trim_end_matches('/'));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .user_agent(concat!("Meetily/", env!("CARGO_PKG_VERSION")))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+    let mut request = client.get(&url);
+    if let Some(key) = api_key.filter(|k| !k.trim().is_empty()) {
+        request = request.header("Authorization", format!("Bearer {}", key.trim()));
+    }
+
+    let response = request
+        .send()
+        .await
+        .map_err(|e| format!("Could not reach {}: {}", url, e))?;
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(format!(
+            "{} returned {}: {}",
+            url,
+            status,
+            body.chars().take(300).collect::<String>()
+        ));
+    }
+
+    let json: serde_json::Value =
+        serde_json::from_str(&body).map_err(|e| format!("Invalid JSON from {}: {}", url, e))?;
+    // OpenAI shape is {"data": [{"id": ...}]}; some servers return a bare array
+    let items = json
+        .get("data")
+        .or_else(|| json.get("models"))
+        .unwrap_or(&json)
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    let mut models: Vec<String> = items
+        .iter()
+        .filter_map(|m| m.get("id").or_else(|| m.get("name")).and_then(|v| v.as_str()))
+        .map(str::to_string)
+        .collect();
+    models.sort_by_key(|m| m.to_lowercase());
+    models.dedup();
+    if models.is_empty() {
+        return Err("The endpoint did not list any models. Type the model ID instead.".to_string());
+    }
+    Ok(models)
 }
+
+

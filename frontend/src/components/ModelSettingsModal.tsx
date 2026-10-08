@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/command';
 import { cn, isOllamaNotInstalledError } from '@/lib/utils';
 import { toast } from 'sonner';
+import { OPENAI_COMPATIBLE_PRESETS } from '@/lib/openai-compatible-presets';
 
 export interface ModelConfig {
   provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai';
@@ -153,6 +154,31 @@ export function ModelSettingsModal({
   const [customTemperature, setCustomTemperature] = useState<string>(modelConfig.temperature?.toString() || '');
   const [customTopP, setCustomTopP] = useState<string>(modelConfig.topP?.toString() || '');
   const [isCustomOpenAIAdvancedOpen, setIsCustomOpenAIAdvancedOpen] = useState<boolean>(false);
+  const [customOpenAIModels, setCustomOpenAIModels] = useState<string[]>([]);
+  const [isFetchingCustomModels, setIsFetchingCustomModels] = useState(false);
+  const [customModelsError, setCustomModelsError] = useState<string | null>(null);
+
+  // Fetched models belong to one endpoint/key; forget them when either changes
+  useEffect(() => {
+    setCustomOpenAIModels([]);
+    setCustomModelsError(null);
+  }, [customOpenAIEndpoint, customOpenAIApiKey]);
+
+  const fetchCustomOpenAIModels = async () => {
+    setIsFetchingCustomModels(true);
+    setCustomModelsError(null);
+    try {
+      const models = await invoke<string[]>('api_list_custom_openai_models', {
+        endpoint: customOpenAIEndpoint.trim(),
+        apiKey: customOpenAIApiKey.trim() || null,
+      });
+      setCustomOpenAIModels(models);
+    } catch (error) {
+      setCustomModelsError(String(error));
+    } finally {
+      setIsFetchingCustomModels(false);
+    }
+  };
   const [isTestingConnection, setIsTestingConnection] = useState<boolean>(false);
 
   // Combobox state
@@ -876,7 +902,7 @@ export function ModelSettingsModal({
               <SelectContent className="max-h-64 overflow-y-auto">
                 <SelectItem value="builtin-ai">Built-in AI (Offline, No API needed)</SelectItem>
                 <SelectItem value="claude">Claude</SelectItem>
-                <SelectItem value="custom-openai">Custom Server (OpenAI)</SelectItem>
+                <SelectItem value="custom-openai">OpenAI-compatible (any provider)</SelectItem>
                 <SelectItem value="groq">Groq</SelectItem>
                 <SelectItem value="ollama">Ollama</SelectItem>
                 <SelectItem value="openai">OpenAI</SelectItem>
@@ -948,6 +974,39 @@ export function ModelSettingsModal({
         {modelConfig.provider === 'custom-openai' && (
           <div className="space-y-4 border-t pt-4">
             <div>
+              <Label>Provider presets</Label>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {OPENAI_COMPATIBLE_PRESETS.map(preset => (
+                  <button
+                    key={preset.name}
+                    type="button"
+                    onClick={() => setCustomOpenAIEndpoint(preset.endpoint)}
+                    className={cn(
+                      'rounded-full border px-2.5 py-0.5 text-xs transition-colors',
+                      customOpenAIEndpoint.trim() === preset.endpoint
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    )}
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+              {(() => {
+                const preset = OPENAI_COMPATIBLE_PRESETS.find(p => p.endpoint === customOpenAIEndpoint.trim());
+                return preset?.keyUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => invoke('open_external_url', { url: preset.keyUrl })}
+                    className="mt-1 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                  >
+                    Get a {preset.name} API key <ExternalLink className="h-3 w-3" />
+                  </button>
+                ) : null;
+              })()}
+            </div>
+
+            <div>
               <Label htmlFor="custom-endpoint">Endpoint URL *</Label>
               <Input
                 id="custom-endpoint"
@@ -962,20 +1021,6 @@ export function ModelSettingsModal({
             </div>
 
             <div>
-              <Label htmlFor="custom-model">Model Name *</Label>
-              <Input
-                id="custom-model"
-                value={customOpenAIModel}
-                onChange={(e) => setCustomOpenAIModel(e.target.value)}
-                placeholder="gpt-4, llama-3-70b, etc."
-                className="mt-1"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Model identifier to use for requests
-              </p>
-            </div>
-
-            <div>
               <Label htmlFor="custom-api-key">API Key (optional)</Label>
               <Input
                 id="custom-api-key"
@@ -986,6 +1031,60 @@ export function ModelSettingsModal({
                 className="mt-1"
               />
             </div>
+
+            <div>
+              <Label htmlFor="custom-model">Model Name *</Label>
+              <div className="mt-1 flex gap-2">
+                <Input
+                  id="custom-model"
+                  value={customOpenAIModel}
+                  onChange={(e) => setCustomOpenAIModel(e.target.value)}
+                  placeholder="gpt-4, llama-3-70b, etc."
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={fetchCustomOpenAIModels}
+                  disabled={isFetchingCustomModels || !customOpenAIEndpoint.trim()}
+                  title="Load the model list from the endpoint (add the API key first if required)"
+                  className="shrink-0"
+                >
+                  <RefreshCw className={cn('mr-1 h-4 w-4', isFetchingCustomModels && 'animate-spin')} />
+                  Fetch models
+                </Button>
+              </div>
+              {customOpenAIModels.length > 0 && (() => {
+                // Typing a partial name in the field above narrows the list
+                const filter = customOpenAIModel.trim().toLowerCase();
+                const isExact = customOpenAIModels.includes(customOpenAIModel);
+                const visible = filter && !isExact
+                  ? customOpenAIModels.filter(m => m.toLowerCase().includes(filter))
+                  : customOpenAIModels;
+                return (
+                  <select
+                    value={isExact ? customOpenAIModel : ''}
+                    onChange={(e) => e.target.value && setCustomOpenAIModel(e.target.value)}
+                    className="mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">
+                      {visible.length === customOpenAIModels.length
+                        ? `Choose from ${visible.length} models…`
+                        : `${visible.length} of ${customOpenAIModels.length} models match “${customOpenAIModel.trim()}”…`}
+                    </option>
+                    {visible.map(model => (
+                      <option key={model} value={model}>{model}</option>
+                    ))}
+                  </select>
+                );
+              })()}
+              {customModelsError && (
+                <p className="text-xs text-red-600 mt-1">{customModelsError}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                Model identifier to use for requests. Fetch models loads the list from the endpoint using the key above; type part of a name to filter it.
+              </p>
+            </div>
+
 
             {/* Advanced Options (Collapsible) */}
             <div>
