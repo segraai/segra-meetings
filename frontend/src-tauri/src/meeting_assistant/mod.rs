@@ -51,6 +51,7 @@ async fn calendar_loop<R: Runtime>(app: AppHandle<R>) {
     loop {
         if let Some(pool) = pool(&app) {
             if google_calendar::is_connected(&app)
+                && !google_calendar::needs_reconnect(&app)
                 && last_sync.map_or(true, |t| t.elapsed() >= CALENDAR_SYNC_INTERVAL)
             {
                 last_sync = Some(Instant::now());
@@ -59,7 +60,17 @@ async fn calendar_loop<R: Runtime>(app: AppHandle<R>) {
                         info!("Synced {} calendar events", count);
                         let _ = app.emit(CALENDAR_UPDATED_EVENT, ());
                     }
-                    Err(e) => google_calendar::log_sync_error(&e),
+                    Err(e) => {
+                        google_calendar::log_sync_error(&e);
+                        if google_calendar::needs_reconnect(&app) {
+                            notify(
+                                &app,
+                                "Google Calendar disconnected",
+                                "Your Google sign-in expired. Reconnect in Settings → Calendar & Meetings.",
+                            );
+                            let _ = app.emit(CALENDAR_UPDATED_EVENT, ());
+                        }
+                    }
                 }
             }
 

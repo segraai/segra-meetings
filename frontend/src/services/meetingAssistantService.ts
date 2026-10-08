@@ -15,6 +15,7 @@ export interface CalendarStatus {
   connected: boolean;
   account_email: string | null;
   has_credentials: boolean;
+  needs_reconnect: boolean;
 }
 
 export interface CalendarEvent {

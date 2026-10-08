@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { listen } from '@tauri-apps/api/event';
-import { CalendarDays, FileText, Loader2, Mic, Search, Users, Video, X } from 'lucide-react';
+import { AlertTriangle, CalendarDays, FileText, Loader2, Mic, Search, Users, Video, X } from 'lucide-react';
 import {
   CALENDAR_UPDATED_EVENT,
   CalendarEvent,
@@ -67,6 +67,7 @@ export function HomeDashboard() {
   const [meetings, setMeetings] = useState<MeetingOverview[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [calendarConnected, setCalendarConnected] = useState<boolean | null>(null);
+  const [calendarNeedsReconnect, setCalendarNeedsReconnect] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [pastLimit, setPastLimit] = useState(PAST_PAGE_SIZE);
   const [now, setNow] = useState(() => new Date());
@@ -79,6 +80,7 @@ export function HomeDashboard() {
     try {
       const status = await meetingAssistantService.getCalendarStatus();
       setCalendarConnected(status.connected);
+      setCalendarNeedsReconnect(status.connected && status.needs_reconnect);
       if (!status.connected) {
         setEvents([]);
         return;
@@ -233,6 +235,18 @@ export function HomeDashboard() {
                   Today ·{' '}
                   {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
                 </SectionHeading>
+                {calendarNeedsReconnect && (
+                  <div className="mb-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span>Google Calendar sign-in expired; events may be out of date.</span>
+                    <button
+                      className="ml-auto shrink-0 font-medium text-blue-600 hover:underline"
+                      onClick={() => router.push('/settings?tab=calendar')}
+                    >
+                      Reconnect
+                    </button>
+                  </div>
+                )}
                 {todayItems.length === 0 ? (
                   <EmptyState>
                     {calendarConnected === false ? (

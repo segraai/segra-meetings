@@ -118,6 +118,7 @@ pub async fn connect<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
         refresh_token,
         expires_at: Utc::now().timestamp() + token.expires_in,
         account_email: None,
+        needs_reconnect: false,
     };
     // The primary calendar's id is the account's email address
     tokens.account_email = fetch_primary_calendar_id(&tokens.access_token).await.ok();
@@ -198,10 +199,29 @@ pub async fn disconnect<R: Runtime>(app: &AppHandle<R>, pool: &SqlitePool) -> Re
     Ok(())
 }
 
+pub const RECONNECT_ERROR: &str = "Google sign-in expired. Reconnect Google Calendar in Settings";
+
+fn mark_needs_reconnect<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(mut tokens) = settings::load_google_tokens(app) {
+        if !tokens.needs_reconnect {
+            warn!("Google rejected the stored sign-in; reconnect required");
+            tokens.needs_reconnect = true;
+            let _ = settings::save_google_tokens(app, Some(&tokens));
+        }
+    }
+}
+
+pub fn needs_reconnect<R: Runtime>(app: &AppHandle<R>) -> bool {
+    settings::load_google_tokens(app).map_or(false, |t| t.needs_reconnect)
+}
+
 /// Returns a valid access token, refreshing it when it is about to expire.
 async fn access_token<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
     let mut tokens =
         settings::load_google_tokens(app).ok_or_else(|| anyhow!("Google Calendar is not connected"))?;
+    if tokens.needs_reconnect {
+        return Err(anyhow!(RECONNECT_ERROR));
+    }
     if tokens.expires_at > Utc::now().timestamp() + 60 {
         return Ok(tokens.access_token);
     }
@@ -218,7 +238,13 @@ async fn access_token<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
         .send()
         .await?;
     if !response.status().is_success() {
+        let status = response.status();
         let body = response.text().await.unwrap_or_default();
+        // invalid_grant: refresh token expired (7-day limit in Testing mode) or access revoked
+        if status == reqwest::StatusCode::BAD_REQUEST || status == reqwest::StatusCode::UNAUTHORIZED {
+            mark_needs_reconnect(app);
+            return Err(anyhow!("{}: {}", RECONNECT_ERROR, body));
+        }
         return Err(anyhow!("Failed to refresh Google token: {}", body));
     }
     let token: TokenResponse = response.json().await?;
@@ -330,7 +356,12 @@ pub async fn sync<R: Runtime>(app: &AppHandle<R>, pool: &SqlitePool) -> Result<u
         if let Some(page) = &page_token {
             request = request.query(&[("pageToken", page)]);
         }
-        let page: EventsPage = request.send().await?.error_for_status()?.json().await?;
+        let response = request.send().await?;
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            mark_needs_reconnect(app);
+            return Err(anyhow!(RECONNECT_ERROR));
+        }
+        let page: EventsPage = response.error_for_status()?.json().await?;
         events.extend(page.items.into_iter().filter_map(|e| convert_event(e, now)));
         page_token = page.next_page_token;
         if page_token.is_none() {

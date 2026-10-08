@@ -11,6 +11,8 @@ pub struct CalendarStatus {
     pub connected: bool,
     pub account_email: Option<String>,
     pub has_credentials: bool,
+    /// Signed in before, but Google no longer accepts the sign-in
+    pub needs_reconnect: bool,
 }
 
 #[tauri::command]
@@ -36,6 +38,7 @@ pub async fn calendar_get_status<R: Runtime>(app: AppHandle<R>) -> Result<Calend
         account_email: google_calendar::account_email(&app),
         has_credentials: !config.google_client_id.trim().is_empty()
             && !config.google_client_secret.trim().is_empty(),
+        needs_reconnect: google_calendar::needs_reconnect(&app),
     })
 }
 

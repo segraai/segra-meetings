@@ -54,6 +54,9 @@ pub struct GoogleTokens {
     /// Unix seconds
     pub expires_at: i64,
     pub account_email: Option<String>,
+    /// Google rejected the refresh token (expired or revoked): the user must sign in again
+    #[serde(default)]
+    pub needs_reconnect: bool,
 }
 
 pub fn load_settings<R: Runtime>(app: &AppHandle<R>) -> AssistantSettings {

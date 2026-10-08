@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { CalendarCheck, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useConfig } from '@/contexts/ConfigContext';
 import {
@@ -98,7 +98,30 @@ export function CalendarSettings() {
           before meetings start. Read-only access; events are stored only on this computer.
         </p>
 
-        {status.connected ? (
+        {status.connected && status.needs_reconnect ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-amber-50 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm text-amber-800">
+              <AlertTriangle className="h-4 w-4" />
+              Google sign-in for <strong>{status.account_email ?? 'your account'}</strong> expired. Calendar sync is paused.
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={connect}
+                disabled={isConnecting}
+                className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isConnecting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {isConnecting ? 'Waiting for Google sign-in…' : 'Reconnect'}
+              </button>
+              <button
+                onClick={disconnect}
+                className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+              >
+                Disconnect
+              </button>
+            </div>
+          </div>
+        ) : status.connected ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-green-50 px-4 py-3">
             <div className="flex items-center gap-2 text-sm text-green-800">
               <CalendarCheck className="h-4 w-4" />
