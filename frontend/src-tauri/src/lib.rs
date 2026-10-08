@@ -48,6 +48,7 @@ pub mod audio;
 pub mod config;
 pub mod console_utils;
 pub mod database;
+pub mod folders;
 pub mod notifications;
 pub mod ollama;
 pub mod onboarding;
@@ -733,6 +734,11 @@ pub fn run() {
             groq::groq::get_groq_models,
             api::api_get_meetings,
             api::api_search_transcripts,
+            folders::api_list_folders,
+            folders::api_create_folder,
+            folders::api_rename_folder,
+            folders::api_delete_folder,
+            folders::api_move_meeting_to_folder,
             knowledge::api_list_meetings_overview,
             knowledge::api_search_meetings,
             knowledge::api_ask_meetings,

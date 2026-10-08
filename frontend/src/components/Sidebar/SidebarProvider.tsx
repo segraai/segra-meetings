@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Analytics from '@/lib/analytics';
 import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'sonner';
 import { useRecordingState } from '@/contexts/RecordingStateContext';
 import type { SummaryProcessResponse } from '@/types';
 
@@ -19,7 +20,18 @@ interface SidebarItem {
 export interface CurrentMeeting {
   id: string;
   title: string;
+  /** Sidebar folder the meeting is filed under, if any */
+  folder_id?: string | null;
 }
+
+export interface MeetingFolder {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
+/** Sidebar group that lists every meeting, filed or not */
+export const ALL_MEETINGS_ID = 'meetings';
 
 // Search result type for transcript search
 interface TranscriptSearchResult {
@@ -62,6 +74,12 @@ interface SidebarContextType {
   stopSummaryPolling: (meetingId: string, processId?: string) => void;
   // Refetch meetings from backend
   refetchMeetings: () => Promise<void>;
+  // Folders
+  folders: MeetingFolder[];
+  createFolder: (name: string) => Promise<MeetingFolder | null>;
+  renameFolder: (folderId: string, name: string) => Promise<void>;
+  deleteFolder: (folderId: string) => Promise<void>;
+  moveMeetingToFolder: (meetingId: string, folderId: string | null) => Promise<void>;
 
 }
 
@@ -79,6 +97,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [currentMeeting, setCurrentMeeting] = useState<CurrentMeeting | null>({ id: 'intro-call', title: '+ New Call' });
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [meetings, setMeetings] = useState<CurrentMeeting[]>([]);
+  const [folders, setFolders] = useState<MeetingFolder[]>([]);
   const [sidebarItems, setSidebarItems] = useState<SidebarItem[]>([]);
   const [isMeetingActive, setIsMeetingActive] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -97,12 +116,17 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const fetchMeetings = React.useCallback(async () => {
     if (serverAddress) {
       try {
-        const meetings = await invoke('api_get_meetings') as Array<{ id: string, title: string }>;
+        const [meetings, folderList] = await Promise.all([
+          invoke('api_get_meetings') as Promise<Array<{ id: string, title: string, folder_id?: string | null }>>,
+          invoke<MeetingFolder[]>('api_list_folders'),
+        ]);
         const transformedMeetings = meetings.map((meeting: any) => ({
           id: meeting.id,
-          title: meeting.title
+          title: meeting.title,
+          folder_id: meeting.folder_id ?? null,
         }));
         setMeetings(transformedMeetings);
+        setFolders(folderList);
         Analytics.trackBackendConnection(true);
       } catch (error) {
         console.error('Error fetching meetings:', error);
@@ -124,16 +148,60 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     fetchSettings();
   }, []);
 
+  const toFile = (meeting: CurrentMeeting) => ({ id: meeting.id, title: meeting.title, type: 'file' as const });
   const baseItems: SidebarItem[] = [
     {
-      id: 'meetings',
-      title: 'Meeting Notes',
+      id: ALL_MEETINGS_ID,
+      title: 'All meetings',
       type: 'folder' as const,
-      children: [
-        ...meetings.map(meeting => ({ id: meeting.id, title: meeting.title, type: 'file' as const }))
-      ]
+      children: meetings.map(toFile),
     },
+    ...folders.map(folder => ({
+      id: folder.id,
+      title: folder.name,
+      type: 'folder' as const,
+      children: meetings.filter(m => m.folder_id === folder.id).map(toFile),
+    })),
   ];
+
+  const createFolder = React.useCallback(async (name: string) => {
+    try {
+      const folder = await invoke<MeetingFolder>('api_create_folder', { name });
+      setFolders(prev => [...prev, folder]);
+      return folder;
+    } catch (error) {
+      toast.error('Could not create folder', { description: String(error) });
+      return null;
+    }
+  }, []);
+
+  const renameFolder = React.useCallback(async (folderId: string, name: string) => {
+    try {
+      await invoke('api_rename_folder', { folderId, name });
+      setFolders(prev => prev.map(f => (f.id === folderId ? { ...f, name: name.trim() } : f)));
+    } catch (error) {
+      toast.error('Could not rename folder', { description: String(error) });
+    }
+  }, []);
+
+  const deleteFolder = React.useCallback(async (folderId: string) => {
+    try {
+      await invoke('api_delete_folder', { folderId });
+      setFolders(prev => prev.filter(f => f.id !== folderId));
+      setMeetings(prev => prev.map(m => (m.folder_id === folderId ? { ...m, folder_id: null } : m)));
+    } catch (error) {
+      toast.error('Could not delete folder', { description: String(error) });
+    }
+  }, []);
+
+  const moveMeetingToFolder = React.useCallback(async (meetingId: string, folderId: string | null) => {
+    try {
+      await invoke('api_move_meeting_to_folder', { meetingId, folderId });
+      setMeetings(prev => prev.map(m => (m.id === meetingId ? { ...m, folder_id: folderId } : m)));
+    } catch (error) {
+      toast.error('Could not move meeting', { description: String(error) });
+    }
+  }, []);
 
 
   const toggleCollapse = () => {
@@ -148,10 +216,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     setSidebarItems(baseItems);
   }, [pathname]);
 
-  // Update sidebar items when meetings change
+  // Update sidebar items when meetings or folders change
   useEffect(() => {
     setSidebarItems(baseItems);
-  }, [meetings]);
+  }, [meetings, folders]);
 
   // Function to handle recording toggle from sidebar
   const handleRecordingToggle = () => {
@@ -316,6 +384,11 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       startSummaryPolling,
       stopSummaryPolling,
       refetchMeetings: fetchMeetings,
+      folders,
+      createFolder,
+      renameFolder,
+      deleteFolder,
+      moveMeetingToFolder,
 
     }}>
       {children}

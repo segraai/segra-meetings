@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { listen } from '@tauri-apps/api/event';
-import { AlertTriangle, CalendarDays, FileText, Loader2, Mic, Search, Users, Video, X } from 'lucide-react';
+import { AlertTriangle, FileText, Loader2, Mic, Search, Users, Video, X } from 'lucide-react';
 import {
   CALENDAR_UPDATED_EVENT,
   CalendarEvent,
@@ -144,7 +144,7 @@ export function HomeDashboard() {
     router.push(`/meeting-details?id=${id}`);
   };
 
-  const { upcomingGroups, pastGroups, pastCount } = useMemo(() => {
+  const { upcoming, pastGroups, pastCount } = useMemo(() => {
     const upcoming: UpcomingItem[] = events
       .filter(e => !e.is_all_day && new Date(e.end_time) > now)
       .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -171,7 +171,7 @@ export function HomeDashboard() {
     };
 
     return {
-      upcomingGroups: groupByDay(upcoming, item => item.start),
+      upcoming,
       pastGroups: groupByDay(meetings.slice(0, pastLimit), m => new Date(m.created_at)),
       pastCount: meetings.length,
     };
@@ -250,7 +250,7 @@ export function HomeDashboard() {
                     </button>
                   </div>
                 )}
-                {upcomingGroups.length === 0 ? (
+                {upcoming.length === 0 ? (
                   <EmptyState>
                     {calendarConnected === false ? (
                       <>
@@ -264,22 +264,26 @@ export function HomeDashboard() {
                     )}
                   </EmptyState>
                 ) : (
-                  <div className="space-y-4">
-                    {upcomingGroups.map(group => (
-                      <div key={group.label}>
-                        <p className="mb-1 px-2 text-xs font-medium text-gray-400">{group.label}</p>
-                        <div className="space-y-1">
-                          {group.items.map(item => (
-                            <EventRow
-                              key={item.event.id}
-                              item={item}
-                              now={now}
-                              onOpen={() => item.meeting && openMeeting(item.meeting.id, item.meeting.title)}
-                            />
-                          ))}
-                        </div>
+                  <div className="space-y-3">
+                    <UpcomingCard
+                      item={upcoming[0]}
+                      now={now}
+                      featured
+                      onOpen={() => upcoming[0].meeting && openMeeting(upcoming[0].meeting.id, upcoming[0].meeting.title)}
+                    />
+                    {upcoming.length > 1 && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {upcoming.slice(1).map(item => (
+                          <UpcomingCard
+                            key={item.event.id}
+                            item={item}
+                            now={now}
+                            featured={false}
+                            onOpen={() => item.meeting && openMeeting(item.meeting.id, item.meeting.title)}
+                          />
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </section>
@@ -361,77 +365,122 @@ function MeetingRow({ meeting, onOpen }: { meeting: MeetingOverview; onOpen: () 
   );
 }
 
-function EventRow({
+function relativeStart(start: Date, end: Date, now: Date) {
+  if (start <= now && now < end) return 'Happening now';
+  const minutes = Math.round((start.getTime() - now.getTime()) / 60_000);
+  if (minutes < 60) return `in ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `in ${hours} hr${hours === 1 ? '' : 's'}`;
+  const days = Math.round((startOfDay(start).getTime() - startOfDay(now).getTime()) / 86_400_000);
+  return days === 1 ? 'tomorrow' : `in ${days} days`;
+}
+
+function parseAttendees(json: string | null): { email?: string; name?: string }[] {
+  try {
+    return json ? JSON.parse(json) : [];
+  } catch {
+    return [];
+  }
+}
+
+function UpcomingCard({
   item,
   now,
+  featured,
   onOpen,
 }: {
   item: UpcomingItem;
   now: Date;
+  /** The next meeting: larger and highlighted */
+  featured: boolean;
   onOpen: () => void;
 }) {
   const { event, meeting, start, end } = item;
   const isLive = start <= now && now < end;
-  const isPast = end <= now;
-  const attendees: { email?: string; name?: string }[] = (() => {
-    try {
-      return event.attendees_json ? JSON.parse(event.attendees_json) : [];
-    } catch {
-      return [];
-    }
-  })();
+  const attendees = parseAttendees(event.attendees_json);
+  const when = `${dayLabel(start, now)} · ${formatTime(start)} – ${formatTime(end)}`;
 
   return (
     <div
       onClick={meeting ? onOpen : undefined}
-      className={`flex items-center gap-3 rounded-lg px-2 py-2 ${meeting ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+      className={`rounded-xl border transition-shadow ${meeting ? 'cursor-pointer hover:shadow-md' : ''} ${
+        featured
+          ? 'border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5 shadow-sm'
+          : 'border-gray-200 bg-white p-4 hover:border-gray-300'
+      }`}
     >
-      <div className="w-16 shrink-0 text-xs text-gray-500">
-        <div className={isLive ? 'font-semibold text-blue-600' : ''}>{formatTime(start)}</div>
-        <div className="text-gray-400">{formatTime(end)}</div>
+      <div className="flex items-center gap-2 text-xs font-medium">
+        {featured && <span className="uppercase tracking-wide text-blue-700">Up next</span>}
+        <span
+          className={`rounded-full px-2 py-0.5 ${
+            isLive ? 'bg-blue-600 text-white' : featured ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          {relativeStart(start, end, now)}
+        </span>
       </div>
-      <div className={`h-9 w-1 shrink-0 rounded-full ${isLive ? 'bg-blue-500' : isPast ? 'bg-gray-200' : 'bg-blue-200'}`} />
-      <div className="min-w-0 flex-1">
-        <p className={`truncate text-sm font-medium ${isPast && !meeting ? 'text-gray-400' : 'text-gray-900'}`}>
-          {event.title}
+
+      <p
+        className={`mt-2 font-semibold text-gray-900 ${featured ? 'text-xl leading-snug line-clamp-2' : 'text-base truncate'}`}
+        title={event.title}
+      >
+        {event.title}
+      </p>
+      <p className={`mt-1 text-gray-500 ${featured ? 'text-sm' : 'text-xs'}`}>{when}</p>
+
+      {attendees.length > 0 && (
+        <p
+          className="mt-1 flex items-center gap-1 truncate text-xs text-gray-500"
+          title={attendees.map(a => a.name || a.email).join(', ')}
+        >
+          <Users className="h-3 w-3 shrink-0" />
+          {attendees
+            .slice(0, 3)
+            .map(a => a.name || a.email)
+            .join(', ')}
+          {attendees.length > 3 && ` +${attendees.length - 3}`}
         </p>
-        <p className="flex items-center gap-2 truncate text-xs text-gray-500">
-          {attendees.length > 0 && (
-            <span className="flex items-center gap-1" title={attendees.map(a => a.name || a.email).join(', ')}>
-              <Users className="h-3 w-3" /> {attendees.length}
-            </span>
-          )}
-          {meeting ? (
-            <span className="flex items-center gap-1 text-green-600">
-              <FileText className="h-3 w-3" /> Notes ready
-            </span>
-          ) : isLive ? (
-            <span className="text-blue-600">Happening now</span>
-          ) : isPast ? (
-            <span>Not recorded</span>
-          ) : null}
-        </p>
-      </div>
-      {!meeting && !isPast && (
-        <div className="flex shrink-0 gap-1.5">
-          {event.meeting_url && (
-            <button
-              onClick={() => meetingAssistantService.popupAction('join', event.title, event.meeting_url)}
-              className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-              title="Open the meeting link and start recording"
-            >
-              <Video className="h-3 w-3" /> Join
-            </button>
-          )}
-          <button
-            onClick={() => meetingAssistantService.popupAction('record', event.title)}
-            className="flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700"
-          >
-            <Mic className="h-3 w-3" /> Record
-          </button>
-        </div>
       )}
-      {!meeting && isPast && <CalendarDays className="h-4 w-4 shrink-0 text-gray-300" />}
+
+      <div className={`flex items-center gap-2 ${featured ? 'mt-4' : 'mt-3'}`}>
+        {meeting ? (
+          <span className="flex items-center gap-1 text-xs font-medium text-green-700">
+            <FileText className="h-3.5 w-3.5" /> Recorded · open notes
+          </span>
+        ) : (
+          <>
+            {event.meeting_url && (
+              <button
+                onClick={e => {
+                  e.stopPropagation();
+                  meetingAssistantService.popupAction('join', event.title, event.meeting_url);
+                }}
+                className={`flex items-center gap-1.5 rounded-md font-medium ${
+                  featured ? 'bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700' : 'border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50'
+                }`}
+                title="Open the meeting link and start recording"
+              >
+                <Video className={featured ? 'h-4 w-4' : 'h-3 w-3'} /> Join &amp; record
+              </button>
+            )}
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                meetingAssistantService.popupAction('record', event.title);
+              }}
+              className={`flex items-center gap-1.5 rounded-md font-medium ${
+                featured && !event.meeting_url
+                  ? 'bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700'
+                  : featured
+                    ? 'border border-blue-200 bg-white px-3 py-1.5 text-sm text-blue-700 hover:bg-blue-50'
+                    : 'border border-gray-200 px-2 py-1 text-xs text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Mic className={featured ? 'h-4 w-4' : 'h-3 w-3'} /> Record
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
