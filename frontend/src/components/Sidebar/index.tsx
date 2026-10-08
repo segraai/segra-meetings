@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, Upload, Folder, FolderPlus, FolderInput, Layers, Check, MoreHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, Upload, Folder, FolderPlus, FolderInput, Layers, Check, MoreHorizontal, Play, Pause } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar, ALL_MEETINGS_ID } from './SidebarProvider';
 import {
@@ -79,7 +79,32 @@ const Sidebar: React.FC = () => {
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   // Get recording state from RecordingStateContext (single source of truth)
-  const { isRecording } = useRecordingState();
+  const { isRecording, isPaused } = useRecordingState();
+  const [isTogglingPause, setIsTogglingPause] = useState(false);
+  const [isStoppingFromSidebar, setIsStoppingFromSidebar] = useState(false);
+
+  const togglePause = async () => {
+    setIsTogglingPause(true);
+    try {
+      await invoke(isPaused ? 'resume_recording' : 'pause_recording');
+    } catch (error) {
+      toast.error(isPaused ? 'Failed to resume recording' : 'Failed to pause recording', { description: String(error) });
+    } finally {
+      setIsTogglingPause(false);
+    }
+  };
+
+  // Same path as the tray's Stop: stops in Rust, then saves and generates notes
+  const stopRecording = async () => {
+    setIsStoppingFromSidebar(true);
+    try {
+      await invoke('meeting_popup_action', { action: 'stop' });
+    } catch (error) {
+      toast.error('Failed to stop recording', { description: String(error) });
+    } finally {
+      setIsStoppingFromSidebar(false);
+    }
+  };
   const { openImportDialog } = useImportDialog();
   const { betaFeatures } = useConfig();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['meetings']));
@@ -940,23 +965,39 @@ const Sidebar: React.FC = () => {
         {!isCollapsed && (
 
           <div className="flex-shrink-0 p-2 border-t border-gray-100">
-            <button
-              onClick={handleRecordingToggle}
-              disabled={isRecording}
-              className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-white ${isRecording ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} rounded-lg transition-colors shadow-sm`}
-            >
-              {isRecording ? (
-                <>
+            {isRecording ? (
+              <div className="flex gap-1">
+                <button
+                  onClick={togglePause}
+                  disabled={isTogglingPause || isStoppingFromSidebar}
+                  className={`flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-60 ${
+                    isPaused ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                  }`}
+                >
+                  {isPaused ? <Play className="w-4 h-4 mr-2" /> : <Pause className="w-4 h-4 mr-2" />}
+                  <span>{isPaused ? 'Resume' : 'Pause'}</span>
+                </button>
+                <button
+                  onClick={stopRecording}
+                  disabled={isStoppingFromSidebar}
+                  className="flex-1 flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm disabled:opacity-60"
+                >
                   <Square className="w-4 h-4 mr-2" />
-                  <span>Recording in progress...</span>
-                </>
-              ) : (
-                <>
-                  <Mic className="w-4 h-4 mr-2" />
-                  <span>Start Recording</span>
-                </>
-              )}
-            </button>
+                  <span>{isStoppingFromSidebar ? 'Stopping…' : 'Stop'}</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleRecordingToggle}
+                className="w-full flex items-center justify-center px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+              >
+                <Mic className="w-4 h-4 mr-2" />
+                <span>Start Recording</span>
+              </button>
+            )}
+            {isRecording && isPaused && (
+              <p className="mt-1 text-center text-xs text-orange-600">Recording paused</p>
+            )}
 
             {betaFeatures.importAndRetranscribe && (
               <button
