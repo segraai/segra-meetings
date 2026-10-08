@@ -38,7 +38,6 @@ import { VisuallyHidden } from "@/components/ui/visually-hidden"
 
 import { MessageToast } from '../MessageToast';
 import Logo from '../Logo';
-import Info from '../Info';
 import { ComplianceNotification } from '../ComplianceNotification';
 import { Input } from '../ui/input';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group';
@@ -106,15 +105,6 @@ const Sidebar: React.FC = () => {
     currentTitle: ''
   });
   const [editingTitle, setEditingTitle] = useState<string>('');
-
-  // Ensure 'meetings' folder is always expanded
-  useEffect(() => {
-    if (!expandedFolders.has('meetings')) {
-      const newExpanded = new Set(expandedFolders);
-      newExpanded.add('meetings');
-      setExpandedFolders(newExpanded);
-    }
-  }, [expandedFolders]);
 
   // useEffect(() => {
   //   if (settingsSaveSuccess !== null) {
@@ -561,7 +551,6 @@ const Sidebar: React.FC = () => {
             </TooltipContent>
           </Tooltip>
 
-          <Info isCollapsed={isCollapsed} />
         </div>
       </TooltipProvider>
     );
@@ -911,24 +900,11 @@ const Sidebar: React.FC = () => {
           {/* Content area */}
           <div className="flex-1 flex flex-col min-h-0">
             {renderCollapsedIcons()}
-            {/* Meetings: "All meetings" plus user folders */}
             {!isCollapsed && (
-              <div className="flex-shrink-0 flex items-center p-3 h-10 mx-3 mt-3 rounded-lg">
-                <NotebookPen className="w-4 h-4 mr-2 text-gray-600" />
-                <span className="text-lg font-semibold text-gray-700">Meetings</span>
-                <button
-                  onClick={() => setNewFolderName('')}
-                  className="ml-auto p-1 rounded-md text-gray-500 hover:bg-gray-100 hover:text-blue-600"
-                  title="New folder"
-                  aria-label="New folder"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
-            {!isCollapsed && (
-              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-3 pb-2">
+              <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 px-3 pt-3 pb-2">
+                {filteredSidebarItems
+                  .filter(item => item.type === 'folder')
+                  .map(folder => renderFolderGroup(folder))}
                 {newFolderName !== null && (
                   <div className="flex items-center h-9 px-2 mb-1 rounded-lg bg-gray-50">
                     <Folder className="w-4 h-4 mr-2 ml-[18px] text-blue-600 flex-shrink-0" />
@@ -946,9 +922,15 @@ const Sidebar: React.FC = () => {
                     />
                   </div>
                 )}
-                {filteredSidebarItems
-                  .filter(item => item.type === 'folder')
-                  .map(folder => renderFolderGroup(folder))}
+                {newFolderName === null && !searchQuery.trim() && (
+                  <button
+                    onClick={() => setNewFolderName('')}
+                    className="flex items-center w-full h-8 px-2 rounded-lg text-[13px] text-gray-500 hover:bg-gray-50 hover:text-blue-600"
+                  >
+                    <FolderPlus className="w-4 h-4 mr-2 ml-[18px]" />
+                    New folder
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -993,7 +975,6 @@ const Sidebar: React.FC = () => {
               <Settings className="w-4 h-4 mr-2" />
               <span>Settings</span>
             </button>
-            <Info isCollapsed={isCollapsed} />
             <div className="w-full flex items-center justify-center px-3 py-1 text-xs text-gray-400">
               v0.4.1
             </div>
