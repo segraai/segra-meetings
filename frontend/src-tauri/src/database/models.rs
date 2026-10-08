@@ -10,6 +10,8 @@ pub struct MeetingModel {
     pub updated_at: DateTimeUtc,
     pub folder_path: Option<String>,
     /// Sidebar folder the meeting is filed under, if any
+    /// (default: some queries select only the original columns)
+    #[sqlx(default)]
     pub folder_id: Option<String>,
 }
 
