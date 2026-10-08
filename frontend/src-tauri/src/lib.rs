@@ -35,6 +35,13 @@ pub(crate) use perf_trace;
 // Re-export async logging macros for external use (removed due to macro conflicts)
 
 // Declare audio module
+/// Display name of the app. Override at build time with MEETILY_APP_NAME
+/// (e.g. for a side-by-side test build).
+pub const APP_NAME: &str = match option_env!("MEETILY_APP_NAME") {
+    Some(name) => name,
+    None => "Meetily",
+};
+
 pub mod analytics;
 pub mod api;
 pub mod audio;
@@ -507,6 +514,13 @@ pub fn run() {
             };
 
             log::info!("Application setup complete");
+
+            // Test builds with a custom name also retitle the main window
+            if option_env!("MEETILY_APP_NAME").is_some() {
+                if let Some(window) = _app.get_webview_window("main") {
+                    let _ = window.set_title(APP_NAME);
+                }
+            }
 
             // Initialize system tray
             if let Err(e) = tray::create_tray(_app.handle()) {

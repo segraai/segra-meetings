@@ -47,7 +47,7 @@ pub fn show<R: Runtime>(app: &AppHandle<R>, content: PopupContent<'_>) {
     close(app);
 
     let mut builder = WebviewWindowBuilder::new(app, POPUP_LABEL, WebviewUrl::App(path.into()))
-        .title("Meetily")
+        .title(crate::APP_NAME)
         .inner_size(WIDTH, HEIGHT)
         .resizable(false)
         .decorations(false)
