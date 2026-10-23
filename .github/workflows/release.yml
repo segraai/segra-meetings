@@ -80,6 +80,16 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
             libasound2-dev libopenblas-dev libx11-dev libxtst-dev libxrandr-dev
 
+      # llama.cpp's bundled cpp-httplib doesn't compile against OpenSSL 4,
+      # which the macOS runner now ships; point CMake at OpenSSL 3 instead.
+      - name: Use OpenSSL 3
+        if: runner.os == 'macOS'
+        run: |
+          brew list openssl@3 >/dev/null 2>&1 || brew install openssl@3
+          PREFIX=$(brew --prefix openssl@3)
+          echo "OPENSSL_ROOT_DIR=$PREFIX" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
+
       - name: Install Vulkan SDK
         if: runner.os == 'Windows'
         uses: humbletim/install-vulkan-sdk@v1.2
