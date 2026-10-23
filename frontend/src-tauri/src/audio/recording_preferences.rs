@@ -20,9 +20,17 @@ pub struct RecordingPreferences {
     pub preferred_mic_device: Option<String>,
     #[serde(default)]
     pub preferred_system_device: Option<String>,
+    /// Record only during the meeting and transcribe the saved audio once it ends
+    /// (default). When false, transcribe live during the meeting.
+    #[serde(default = "default_transcribe_after_meeting")]
+    pub transcribe_after_meeting: bool,
     #[cfg(target_os = "macos")]
     #[serde(default)]
     pub system_audio_backend: Option<String>,
+}
+
+fn default_transcribe_after_meeting() -> bool {
+    true
 }
 
 impl Default for RecordingPreferences {
@@ -33,6 +41,7 @@ impl Default for RecordingPreferences {
             file_format: "mp4".to_string(),
             preferred_mic_device: None,
             preferred_system_device: None,
+            transcribe_after_meeting: default_transcribe_after_meeting(),
             #[cfg(target_os = "macos")]
             system_audio_backend: Some("coreaudio".to_string()),
         }
@@ -385,3 +394,19 @@ pub async fn get_audio_backend_info() -> Result<Vec<BackendInfo>, String> {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preferences_saved_before_the_option_default_to_transcribing_after_the_meeting() {
+        let prefs: RecordingPreferences = serde_json::from_value(serde_json::json!({
+            "save_folder": "/tmp/recordings",
+            "auto_save": true,
+            "file_format": "mp4"
+        }))
+        .unwrap();
+        assert!(prefs.transcribe_after_meeting);
+    }
+}

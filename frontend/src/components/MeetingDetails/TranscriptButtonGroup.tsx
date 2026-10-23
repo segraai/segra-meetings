@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
-import { Copy, FolderOpen, RefreshCw } from 'lucide-react';
+import { Copy, RefreshCw } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 import { RetranscribeDialog } from './RetranscribeDialog';
 import { useConfig } from '@/contexts/ConfigContext';
@@ -12,7 +12,6 @@ import { useConfig } from '@/contexts/ConfigContext';
 interface TranscriptButtonGroupProps {
   transcriptCount: number;
   onCopyTranscript: () => void;
-  onOpenMeetingFolder: () => Promise<void>;
   meetingId?: string;
   meetingFolderPath?: string | null;
   onRefetchTranscripts?: () => Promise<void>;
@@ -22,7 +21,6 @@ interface TranscriptButtonGroupProps {
 export function TranscriptButtonGroup({
   transcriptCount,
   onCopyTranscript,
-  onOpenMeetingFolder,
   meetingId,
   meetingFolderPath,
   onRefetchTranscripts,
@@ -38,7 +36,7 @@ export function TranscriptButtonGroup({
   }, [onRefetchTranscripts]);
 
   return (
-    <div className="flex items-center justify-center w-full gap-2">
+    <div className="flex items-center gap-2">
       <ButtonGroup>
         <Button
           variant="outline"
@@ -53,20 +51,6 @@ export function TranscriptButtonGroup({
         >
           <Copy />
           <span className="hidden @[22rem]:inline">Copy</span>
-        </Button>
-
-        <Button
-          size="sm"
-          variant="outline"
-          className="px-2 @[22rem]:px-4"
-          onClick={() => {
-            Analytics.trackButtonClick('open_recording_folder', 'meeting_details');
-            onOpenMeetingFolder();
-          }}
-          title="Open Recording Folder"
-        >
-          <FolderOpen className="@[22rem]:mr-2" size={18} />
-          <span className="hidden @[22rem]:inline">Recording</span>
         </Button>
 
         {betaFeatures.importAndRetranscribe && meetingId && meetingFolderPath && (

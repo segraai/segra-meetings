@@ -11,6 +11,10 @@ import { storageService } from '@/services/storageService';
 import { transcriptService } from '@/services/transcriptService';
 import Analytics from '@/lib/analytics';
 import {
+  isTranscribeAfterMeetingEnabled,
+  queuePostMeetingTranscription,
+} from '@/lib/post-meeting-transcription';
+import {
   applyPinnedSummaryLanguageToMeeting,
   detectAndCacheSummaryLanguage,
 } from '@/lib/summary-language-preferences';
@@ -147,14 +151,18 @@ export function useRecordingStop(
       // This function only handles post-stop processing (transcription wait, API call, navigation)
       console.log('Recording already stopped by RecordingControls, processing transcription...');
 
+      // In transcribe-after-meeting mode nothing was transcribed live: save the meeting
+      // right away and transcribe its recording in the background afterwards.
+      const transcribeAfterMeeting = await isTranscribeAfterMeetingEnabled();
+
       // Wait for transcription to complete
       setStatus(RecordingStatus.PROCESSING_TRANSCRIPTS, 'Waiting for transcription...');
       console.log('Waiting for transcription to complete...');
 
-      const MAX_WAIT_TIME = 60000; // 60 seconds maximum wait (increased for longer processing)
+      const MAX_WAIT_TIME = transcribeAfterMeeting ? 0 : 60000; // 60 seconds maximum wait (increased for longer processing)
       const POLL_INTERVAL = 500; // Check every 500ms
       let elapsedTime = 0;
-      let transcriptionComplete = false;
+      let transcriptionComplete = transcribeAfterMeeting;
 
       // Listen for transcription-complete event
       const unlistenComplete = await listen('transcription-complete', () => {
@@ -203,7 +211,7 @@ export function useRecordingStop(
 
       if (!transcriptionComplete && elapsedTime >= MAX_WAIT_TIME) {
         console.warn('⏰ Transcription wait timeout reached after', elapsedTime, 'ms');
-      } else {
+      } else if (!transcribeAfterMeeting) {
         console.log('✅ Transcription completed after', elapsedTime, 'ms');
         // Wait longer for any late transcript segments (increased from 1s to 4s)
         console.log('⏳ Waiting for late transcript segments...');
@@ -291,7 +299,9 @@ export function useRecordingStop(
             });
           }
 
-          if (shouldDetectSummaryLanguage) {
+          // Detected from the transcript, which doesn't exist yet in transcribe-after-meeting
+          // mode: summary generation detects it once the transcript is ready.
+          if (shouldDetectSummaryLanguage && !transcribeAfterMeeting) {
             try {
               await detectAndCacheSummaryLanguage(
                 meetingId,
@@ -301,6 +311,16 @@ export function useRecordingStop(
               console.warn('Failed to detect summary language for new meeting:', error);
               toast.warning('Could not detect summary language', {
                 description: 'The meeting was saved, but Auto could not detect the summary language.',
+              });
+            }
+          }
+
+          if (transcribeAfterMeeting) {
+            if (folderPath) {
+              await queuePostMeetingTranscription(meetingId, folderPath);
+            } else {
+              toast.error('Could not transcribe the recording', {
+                description: 'The meeting was saved, but its audio folder is unknown.',
               });
             }
           }
@@ -338,28 +358,18 @@ export function useRecordingStop(
           // Mark as completed
           setStatus(RecordingStatus.COMPLETED);
 
-          // Show success toast with navigation option
-          toast.success('Recording saved successfully!', {
-            description: `${freshTranscripts.length} transcript segments saved.`,
-            action: {
-              label: 'View Meeting',
-              onClick: () => {
-                router.push(`/meeting-details?id=${meetingId}`);
-                Analytics.trackButtonClick('view_meeting_from_toast', 'recording_complete');
-              }
-            },
-            duration: 10000,
+          toast.success('Recording saved', {
+            description: transcribeAfterMeeting
+              ? 'Transcribing the recording now...'
+              : `${freshTranscripts.length} transcript segments saved.`,
           });
 
-          // Auto-navigate after a short delay with source parameter
-          setTimeout(() => {
-            router.push(`/meeting-details?id=${meetingId}&source=recording`);
-            clearTranscripts()
-            Analytics.trackPageView('meeting_details');
+          // Open the meeting right away
+          router.push(`/meeting-details?id=${meetingId}&source=recording`);
+          clearTranscripts();
+          Analytics.trackPageView('meeting_details');
+          setStatus(RecordingStatus.IDLE);
 
-            // Reset to IDLE after navigation
-            setStatus(RecordingStatus.IDLE);
-          }, 2000);
           // Track meeting completion analytics
           try {
             // Calculate meeting duration from transcript timestamps

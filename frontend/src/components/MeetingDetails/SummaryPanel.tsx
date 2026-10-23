@@ -21,6 +21,7 @@ import {
   SummaryLanguageStorage,
 } from '@/lib/summary-language-preferences';
 import { hasVisibleSummaryContent } from '@/lib/summary-content';
+import { NotesProgress, type NotesProgressState } from './NotesProgress';
 
 interface SummaryPanelProps {
   meeting: {
@@ -31,8 +32,6 @@ interface SummaryPanelProps {
   meetingTitle: string;
   isSummaryDirty: boolean;
   summaryRef: RefObject<BlockNoteSummaryViewRef>;
-  isSaving: boolean;
-  onSaveAll: () => Promise<void>;
   onCopySummary: () => Promise<void>;
   aiSummary: MeetingSummary | null;
   summaryStatus: 'idle' | 'processing' | 'summarizing' | 'regenerating' | 'completed' | 'error';
@@ -54,6 +53,8 @@ interface SummaryPanelProps {
   onTemplateSelect: (templateId: string, templateName: string) => void;
   isModelConfigLoading?: boolean;
   onOpenModelSettings?: (openFn: () => void) => void;
+  /** Transcript or notes still being produced: shown in place of the notes */
+  progress?: NotesProgressState | null;
 }
 
 export function SummaryPanel({
@@ -61,8 +62,6 @@ export function SummaryPanel({
   meetingTitle,
   isSummaryDirty,
   summaryRef,
-  isSaving,
-  onSaveAll,
   onCopySummary,
   aiSummary,
   summaryStatus,
@@ -84,6 +83,7 @@ export function SummaryPanel({
   onTemplateSelect,
   isModelConfigLoading = false,
   onOpenModelSettings,
+  progress = null,
 }: SummaryPanelProps) {
   const [summaryLang, setSummaryLang] = useState<string | null>(null);
   const [summaryLangStorage, setSummaryLangStorage] = useState<SummaryLanguageStorage>('metadata');
@@ -212,6 +212,8 @@ export function SummaryPanel({
 
   const isSummaryLoading = summaryStatus === 'processing' || summaryStatus === 'summarizing' || summaryStatus === 'regenerating';
   const hasSummary = hasVisibleSummaryContent(aiSummary);
+  const progressState: NotesProgressState | null =
+    progress ?? (isSummaryLoading ? { phase: 'summarizing', onCancel: onStopGeneration } : null);
 
   const languageSlot = (
     <Popover open={langPickerOpen} onOpenChange={setLangPickerOpen}>
@@ -243,7 +245,11 @@ export function SummaryPanel({
 
   return (
     <div className="flex-1 min-w-0 flex flex-col bg-white overflow-hidden h-full w-full @container">
-      {/* Top-level actions — always visible, same pattern as TranscriptPanel */}
+      {progressState ? (
+        <NotesProgress state={progressState} />
+      ) : (
+      <>
+      {/* Top-level actions */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-center w-full min-w-0 gap-2 flex-wrap">
           <div className="flex-shrink-0 min-w-0">
@@ -269,9 +275,7 @@ export function SummaryPanel({
           {hasSummary && !isSummaryLoading && (
             <div className="flex-shrink-0">
               <SummaryUpdaterButtonGroup
-                isSaving={isSaving}
                 isDirty={isSummaryDirty}
-                onSave={onSaveAll}
                 onCopy={onCopySummary}
               />
             </div>
@@ -279,14 +283,7 @@ export function SummaryPanel({
         </div>
       </div>
 
-      {isSummaryLoading ? (
-        <div className="flex items-center justify-center flex-1">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-            <p className="text-gray-600">Generating AI Summary...</p>
-          </div>
-        </div>
-      ) : !hasSummary ? (
+      {!hasSummary ? (
         <EmptyStateSummary
           onGenerate={() => onGenerateSummary(customPrompt)}
           hasModel={modelConfig.provider !== null && modelConfig.model !== null}
@@ -302,6 +299,7 @@ export function SummaryPanel({
               onSave={onSaveSummary}
               onSummaryChange={onSummaryChange}
               onDirtyChange={onDirtyChange}
+              autoSave
               status={summaryStatus}
               error={summaryError}
               onRegenerateSummary={() => {
@@ -324,6 +322,8 @@ export function SummaryPanel({
             </div>
           )}
         </div>
+      )}
+      </>
       )}
     </div>
   );

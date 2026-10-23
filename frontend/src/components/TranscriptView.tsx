@@ -6,6 +6,7 @@ import { ConfidenceIndicator } from './ConfidenceIndicator';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { RecordingStatusBar } from './RecordingStatusBar';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranscribeAfterMeetingMode } from '@/hooks/usePostMeetingTranscription';
 
 interface TranscriptViewProps {
   transcripts: Transcript[];
@@ -106,6 +107,8 @@ function cleanStopWords(text: string): string {
 
 export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isRecording = false, isPaused = false, isProcessing = false, isStopping = false, enableStreaming = false }) => {
   const [speechDetected, setSpeechDetected] = useState(false);
+  // Recordings in transcribe-after-meeting mode show no live transcript
+  const transcribeAfterMeeting = useTranscribeAfterMeetingMode(isRecording);
 
   // Debug: Log the props to understand what's happening
   console.log('TranscriptView render:', {
@@ -360,18 +363,20 @@ export const TranscriptView: React.FC<TranscriptViewProps> = ({ transcripts, isR
                 <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-orange-500' : 'bg-blue-500 animate-pulse'}`}></div>
               </div>
               <p className="text-sm text-gray-600">
-                {isPaused ? 'Recording paused' : 'Listening for speech...'}
+                {isPaused ? 'Recording paused' : transcribeAfterMeeting ? 'Recording...' : 'Listening for speech...'}
               </p>
               <p className="text-xs mt-1 text-gray-400">
                 {isPaused
                   ? 'Click resume to continue recording'
-                  : 'Speak to see live transcription'}
+                  : transcribeAfterMeeting
+                    ? 'The transcript will be created when the meeting ends'
+                    : 'Speak to see live transcription'}
               </p>
             </>
           ) : (
             <>
-              <p className="text-lg font-semibold">Welcome to meetily!</p>
-              <p className="text-xs mt-1">Start recording to see live transcription</p>
+              <p className="text-lg font-semibold">Welcome to Segra Meetings!</p>
+              <p className="text-xs mt-1">Start recording to capture a meeting</p>
             </>
           )}
         </motion.div>

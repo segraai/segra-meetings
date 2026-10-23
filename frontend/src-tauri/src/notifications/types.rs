@@ -179,7 +179,7 @@ impl Notification {
     pub fn system_error(error: impl Into<String>) -> Self {
         let error_string = error.into();
         Notification::new(
-            "Meetily Error",
+            format!("{} Error", crate::APP_NAME),
             error_string.clone(),
             NotificationType::SystemError(error_string)
         )

@@ -97,6 +97,34 @@ fn finalize_recording_start() {
     IS_RECORDING.store(true, Ordering::SeqCst);
     MIC_FALLBACK_FAILED_ATTEMPTS.store(0, Ordering::SeqCst); // fresh mic-recovery budget per session
     reset_speech_detected_flag(); // reset speech-detected emit latch for the new session
+    super::live_levels::reset(); // level meters start from silence
+}
+
+/// Shared start-path transcription launch. In transcribe-after-meeting mode no
+/// engine is loaded while recording: the pipeline's speech segments are drained
+/// (only to surface the first speech-detected event) and the frontend
+/// transcribes the saved audio once the meeting stops.
+fn spawn_transcription<R: Runtime>(
+    app: AppHandle<R>,
+    mut receiver: tokio::sync::mpsc::UnboundedReceiver<crate::audio::AudioChunk>,
+    transcribe_after_meeting: bool,
+) -> JoinHandle<()> {
+    if !transcribe_after_meeting {
+        return transcription::start_transcription_task(app, receiver);
+    }
+
+    info!("📝 Transcribe-after-meeting mode: recording only, live transcription disabled");
+    tokio::spawn(async move {
+        let mut speech_reported = false;
+        while receiver.recv().await.is_some() {
+            if !speech_reported {
+                speech_reported = true;
+                let _ = app.emit("speech-detected", serde_json::json!({
+                    "message": "Speech activity detected"
+                }));
+            }
+        }
+    })
 }
 
 // Global recording manager and transcription task to keep them alive during recording
@@ -353,18 +381,20 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
     })).map_err(|e| e.to_string())?;
 
     // Load recording preferences to get auto_save AND device preferences
-    let (auto_save, preferred_mic_name, preferred_system_name) =
+    let (auto_save, preferred_mic_name, preferred_system_name, transcribe_after_meeting) =
         match super::recording_preferences::load_recording_preferences(&app).await {
             Ok(prefs) => {
-                info!("📋 Loaded recording preferences: auto_save={}, preferred_mic={:?}, preferred_system={:?}",
-                      prefs.auto_save, prefs.preferred_mic_device, prefs.preferred_system_device);
-                (prefs.auto_save, prefs.preferred_mic_device, prefs.preferred_system_device)
+                info!("📋 Loaded recording preferences: auto_save={}, preferred_mic={:?}, preferred_system={:?}, transcribe_after_meeting={}",
+                      prefs.auto_save, prefs.preferred_mic_device, prefs.preferred_system_device, prefs.transcribe_after_meeting);
+                (prefs.auto_save, prefs.preferred_mic_device, prefs.preferred_system_device, prefs.transcribe_after_meeting)
             }
             Err(e) => {
                 warn!("Failed to load recording preferences, using defaults: {}", e);
-                (true, None, None)
+                (true, None, None, true)
             }
         };
+    // Transcribing after the meeting needs the saved audio
+    let auto_save = auto_save || transcribe_after_meeting;
 
     #[cfg(not(target_os = "macos"))]
     let microphone_device = resolve_mic_or_default(&app, preferred_mic_name.as_deref());
@@ -428,7 +458,7 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
     drop(engine_lifecycle_guard);
 
     // Start optimized parallel transcription task and store handle
-    let task_handle = transcription::start_transcription_task(app.clone(), transcription_receiver);
+    let task_handle = spawn_transcription(app.clone(), transcription_receiver, transcribe_after_meeting);
     {
         let mut global_task = TRANSCRIPTION_TASK.lock().unwrap();
         *global_task = Some(task_handle);
@@ -560,16 +590,19 @@ pub async fn start_recording_with_devices_and_meeting<R: Runtime>(
     let mut manager = RecordingManager::new();
 
     // Load recording preferences to check auto_save setting
-    let auto_save = match super::recording_preferences::load_recording_preferences(&app).await {
+    let (auto_save, transcribe_after_meeting) = match super::recording_preferences::load_recording_preferences(&app).await {
         Ok(prefs) => {
-            info!("📋 Loaded recording preferences: auto_save={}", prefs.auto_save);
-            prefs.auto_save
+            info!("📋 Loaded recording preferences: auto_save={}, transcribe_after_meeting={}",
+                  prefs.auto_save, prefs.transcribe_after_meeting);
+            (prefs.auto_save, prefs.transcribe_after_meeting)
         }
         Err(e) => {
             warn!("Failed to load recording preferences, defaulting to auto_save=true: {}", e);
-            true // Default to saving if preferences can't be loaded
+            (true, true) // Default to saving and transcribing after the meeting
         }
     };
+    // Transcribing after the meeting needs the saved audio
+    let auto_save = auto_save || transcribe_after_meeting;
 
     // Always ensure a meeting name is set so incremental saver initializes
     let effective_meeting_name = meeting_name.clone().unwrap_or_else(|| {
@@ -615,7 +648,7 @@ pub async fn start_recording_with_devices_and_meeting<R: Runtime>(
     drop(engine_lifecycle_guard);
 
     // Start optimized parallel transcription task and store handle
-    let task_handle = transcription::start_transcription_task(app.clone(), transcription_receiver);
+    let task_handle = spawn_transcription(app.clone(), transcription_receiver, transcribe_after_meeting);
     {
         let mut global_task = TRANSCRIPTION_TASK.lock().unwrap();
         *global_task = Some(task_handle);

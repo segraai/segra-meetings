@@ -86,6 +86,8 @@ impl SettingsRepository {
             "groq" => "groqApiKey",
             "openrouter" => "openRouterApiKey",
             "builtin-ai" => return Ok(()), // No API key needed
+            "claude-cli" | "codex-cli" | "gemini-cli" => return Ok(()), // Sign in through their CLIs
+            "segra" => return Ok(()), // Saved by Segra sign-in (crate::segra), not the settings form
             _ => {
                 return Err(sqlx::Error::Protocol(
                     format!("Invalid provider: {}", provider).into(),
@@ -124,6 +126,8 @@ impl SettingsRepository {
             "claude" => "anthropicApiKey",
             "openrouter" => "openRouterApiKey",
             "builtin-ai" => return Ok(None), // No API key needed
+            "claude-cli" | "codex-cli" | "gemini-cli" => return Ok(None), // Sign in through their CLIs
+            "segra" => return Ok(None), // Kept out of the webview; read with crate::segra::api_key
             _ => {
                 return Err(sqlx::Error::Protocol(
                     format!("Invalid provider: {}", provider).into(),
@@ -250,6 +254,8 @@ impl SettingsRepository {
             "claude" => "anthropicApiKey",
             "openrouter" => "openRouterApiKey",
             "builtin-ai" => return Ok(()), // No API key needed
+            "claude-cli" | "codex-cli" | "gemini-cli" => return Ok(()), // Sign in through their CLIs
+            "segra" => return Ok(()), // Signing out is segra_sign_out
             _ => {
                 return Err(sqlx::Error::Protocol(
                     format!("Invalid provider: {}", provider).into(),

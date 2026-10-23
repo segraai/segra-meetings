@@ -47,6 +47,24 @@ impl Default for AssistantSettings {
     }
 }
 
+/// The Google OAuth client built into this build (see build.rs), if any
+pub fn builtin_google_client() -> Option<(&'static str, &'static str)> {
+    match (option_env!("SEGRA_GOOGLE_CLIENT_ID"), option_env!("SEGRA_GOOGLE_CLIENT_SECRET")) {
+        (Some(id), Some(secret)) if !id.is_empty() && !secret.is_empty() => Some((id, secret)),
+        _ => None,
+    }
+}
+
+/// The OAuth client to sign in with: the user's own when they entered one,
+/// otherwise the built-in one.
+pub fn google_client(config: &AssistantSettings) -> Option<(String, String)> {
+    let (id, secret) = (config.google_client_id.trim(), config.google_client_secret.trim());
+    if !id.is_empty() && !secret.is_empty() {
+        return Some((id.to_string(), secret.to_string()));
+    }
+    builtin_google_client().map(|(id, secret)| (id.to_string(), secret.to_string()))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GoogleTokens {
     pub access_token: String,

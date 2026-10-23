@@ -7,6 +7,7 @@ import { useTranscriptStreaming } from "@/hooks/useTranscriptStreaming";
 import { ConfidenceIndicator } from "./ConfidenceIndicator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 import { RecordingStatusBar } from "./RecordingStatusBar";
+import { useTranscribeAfterMeetingMode } from "@/hooks/usePostMeetingTranscription";
 import { motion, AnimatePresence } from "framer-motion";
 import { TranscriptSegmentData } from "@/types";
 import { formatRecordingTime, getParagraphStarts } from "@/lib/transcript-paragraphs";
@@ -124,6 +125,9 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
     loadedCount = 0,
     onLoadMore,
 }) => {
+    // Recordings in transcribe-after-meeting mode show no live transcript
+    const transcribeAfterMeeting = useTranscribeAfterMeetingMode(isRecording);
+
     // Create scroll ref first - shared between virtualizer and auto-scroll hook
     const scrollRef = useRef<HTMLDivElement>(null);
     // Ref for infinite scroll trigger element
@@ -253,16 +257,20 @@ export const VirtualizedTranscriptView: React.FC<VirtualizedTranscriptViewProps>
                                 <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-orange-500' : 'bg-blue-500 animate-pulse'}`}></div>
                             </div>
                             <p className="text-sm text-gray-600">
-                                {isPaused ? 'Recording paused' : 'Listening for speech...'}
+                                {isPaused ? 'Recording paused' : transcribeAfterMeeting ? 'Recording...' : 'Listening for speech...'}
                             </p>
                             <p className="text-xs mt-1 text-gray-400">
-                                {isPaused ? 'Click resume to continue recording' : 'Speak to see live transcription'}
+                                {isPaused
+                                    ? 'Click resume to continue recording'
+                                    : transcribeAfterMeeting
+                                        ? 'The transcript will be created when the meeting ends'
+                                        : 'Speak to see live transcription'}
                             </p>
                         </>
                     ) : (
                         <>
-                            <p className="text-lg font-semibold">Welcome to meetily!</p>
-                            <p className="text-xs mt-1">Start recording to see live transcription</p>
+                            <p className="text-lg font-semibold">Welcome to Segra Meetings!</p>
+                            <p className="text-xs mt-1">Start recording to capture a meeting</p>
                         </>
                     )}
                 </motion.div>

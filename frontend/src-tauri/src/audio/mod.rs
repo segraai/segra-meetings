@@ -25,6 +25,8 @@ pub mod recording_preferences;
 pub mod recording_saver;
 pub mod incremental_saver;  // NEW: Incremental audio saving with checkpoints
 pub mod level_monitor;
+pub mod live_levels;
+pub mod playback;  // Saved recording playback for the meeting page  // Live mic/system levels of the active recording
 pub mod simple_level_monitor;
 pub mod buffer_pool;
 pub mod post_processor;

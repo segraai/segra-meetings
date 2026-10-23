@@ -241,6 +241,9 @@ async fn complete(
     let (mut max_tokens, mut temperature, mut top_p) = (None, None, None);
     match provider {
         LLMProvider::Ollama | LLMProvider::BuiltInAI => {}
+        LLMProvider::Segra => {
+            api_key = crate::segra::require_api_key(pool).await?;
+        }
         LLMProvider::CustomOpenAI => {
             let config = SettingsRepository::get_custom_openai_config(pool)
                 .await

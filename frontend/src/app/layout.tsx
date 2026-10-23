@@ -1,7 +1,7 @@
 'use client'
 
 import './globals.css'
-import { Source_Sans_3 } from 'next/font/google'
+import { Inter, Space_Grotesk } from 'next/font/google'
 import Sidebar from '@/components/Sidebar'
 import { SidebarProvider } from '@/components/Sidebar/SidebarProvider'
 import MainContent from '@/components/MainContent'
@@ -28,10 +28,16 @@ import { ImportDialogProvider } from '@/contexts/ImportDialogContext'
 import { isAudioExtension, getAudioFormatsDisplayList } from '@/constants/audioFormats'
 
 
-const sourceSans3 = Source_Sans_3({
+// Segra brand fonts (segra.ai): Inter for body text, Space Grotesk for headings
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-source-sans-3',
+  variable: '--font-inter',
+})
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  variable: '--font-space-grotesk',
 })
 
 // Module-level component — stable reference across RootLayout re-renders.
@@ -75,7 +81,7 @@ export default function RootLayout({
   if (pathname?.startsWith('/popup')) {
     return (
       <html lang="en">
-        <body className={`${sourceSans3.variable} font-sans antialiased bg-transparent`}>
+        <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased bg-transparent`}>
           {children}
         </body>
       </html>
@@ -90,6 +96,7 @@ function AppLayout({
 }: {
   children: React.ReactNode
 }) {
+  const isSettingsPage = usePathname()?.startsWith('/settings') ?? false
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [onboardingCompleted, setOnboardingCompleted] = useState(false)
 
@@ -254,7 +261,7 @@ function AppLayout({
 
   return (
     <html lang="en">
-      <body className={`${sourceSans3.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
         <AnalyticsProvider>
           <RecordingStateProvider>
             <TranscriptProvider>
@@ -274,8 +281,9 @@ function AppLayout({
                                 <OnboardingFlow onComplete={handleOnboardingComplete} />
                               ) : (
                                 <div className="flex">
-                                  <Sidebar />
-                                  <MainContent>{children}</MainContent>
+                                  {/* Settings has its own navigation, so it takes the full window */}
+                                  {!isSettingsPage && <Sidebar />}
+                                  <MainContent fullWidth={isSettingsPage}>{children}</MainContent>
                                 </div>
                               )}
                               {/* Import audio overlay and dialog */}

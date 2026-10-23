@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Settings2, Mic, Database as DatabaseIcon, SparkleIcon, FlaskConical, CalendarDays, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { invoke } from '@tauri-apps/api/core';
-import { motion } from 'framer-motion';
 import { TranscriptSettings } from '@/components/TranscriptSettings';
 import { RecordingSettings } from '@/components/RecordingSettings';
 import { PreferenceSettings } from '@/components/PreferenceSettings';
@@ -30,10 +29,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { transcriptModelConfig, setTranscriptModelConfig } = useConfig();
 
-  // Animation state for tabs
   const [activeTab, setActiveTab] = useState('general');
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
 
   // Allow deep links like /settings?tab=calendar
   useEffect(() => {
@@ -63,93 +59,79 @@ export default function SettingsPage() {
     loadTranscriptConfig();
   }, [setTranscriptModelConfig]);
 
-  // Update underline position when active tab changes
-  useLayoutEffect(() => {
-    const activeIndex = TABS.findIndex(tab => tab.value === activeTab);
-    const activeTabElement = tabRefs.current[activeIndex];
-
-    if (activeTabElement) {
-      const { offsetLeft, offsetWidth } = activeTabElement;
-      setUnderlineStyle({ left: offsetLeft, width: offsetWidth });
-    }
-  }, [activeTab]);
+  // Back to where Settings was opened from, or Home when there's no history (e.g. a deep link)
+  const goBack = () => {
+    if (window.history.length > 1) router.back();
+    else router.push('/');
+  };
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
-      {/* Fixed Header */}
-      <div className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-8 py-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>Back</span>
-            </button>
-            <h1 className="text-3xl font-bold">Settings</h1>
-          </div>
+    <Tabs
+      value={activeTab}
+      onValueChange={setActiveTab}
+      orientation="vertical"
+      className="h-screen flex bg-gray-50"
+    >
+      {/* Left navigation */}
+      <aside className="w-56 shrink-0 flex flex-col border-r border-gray-200 bg-white">
+        <div className="px-4 pt-5 pb-3">
+          <button
+            onClick={goBack}
+            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+          <h1 className="mt-3 text-2xl font-bold">Settings</h1>
+        </div>
+        <TabsList className="flex h-auto flex-col items-stretch justify-start gap-0.5 rounded-none bg-transparent px-2 py-1">
+          {TABS.map(tab => {
+            const Icon = tab.icon;
+            return (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                className="justify-start gap-3 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-none"
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </aside>
+
+      {/* Scrollable content */}
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-8 py-6">
+          <TabsContent value="general">
+            <PreferenceSettings />
+          </TabsContent>
+          <TabsContent value="calendar">
+            <CalendarSettings />
+          </TabsContent>
+          <TabsContent value="recording">
+            <RecordingSettings />
+          </TabsContent>
+          <TabsContent value="Transcriptionmodels">
+            <TranscriptSettings
+              transcriptModelConfig={transcriptModelConfig}
+              setTranscriptModelConfig={setTranscriptModelConfig}
+            />
+          </TabsContent>
+          <TabsContent value="summaryModels">
+            <SummaryModelSettings />
+          </TabsContent>
+          <TabsContent value="beta">
+            <BetaSettings />
+          </TabsContent>
+          <TabsContent value="about">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <About />
+            </div>
+          </TabsContent>
         </div>
       </div>
-
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-6xl mx-auto p-8 pt-6">
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="bg-transparent relative rounded-none border-b border-gray-200 p-0 h-auto">
-              {TABS.map((tab, index) => {
-                const Icon = tab.icon;
-                return (
-                  <TabsTrigger
-                    key={tab.value}
-                    value={tab.value}
-                    ref={el => { tabRefs.current[index] = el }}
-                    className="flex items-center gap-2 px-6 py-4 bg-transparent rounded-none border-0 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 data-[state=active]:shadow-none text-gray-600 hover:text-gray-900 relative z-10"
-                  >
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
-                  </TabsTrigger>
-                );
-              })}
-
-              <motion.div
-                className="absolute bottom-0 z-20 h-0.5 bg-blue-600"
-                layoutId="underline"
-                style={{ left: underlineStyle.left, width: underlineStyle.width }}
-                transition={{ type: 'spring', stiffness: 400, damping: 40 }}
-              />
-            </TabsList>
-
-            <TabsContent value="general">
-              <PreferenceSettings />
-            </TabsContent>
-            <TabsContent value="calendar">
-              <CalendarSettings />
-            </TabsContent>
-            <TabsContent value="recording">
-              <RecordingSettings />
-            </TabsContent>
-            <TabsContent value="Transcriptionmodels">
-              <TranscriptSettings
-                transcriptModelConfig={transcriptModelConfig}
-                setTranscriptModelConfig={setTranscriptModelConfig}
-              />
-            </TabsContent>
-            <TabsContent value="summaryModels">
-              <SummaryModelSettings />
-            </TabsContent>
-            <TabsContent value="beta" className="mt-6">
-              <BetaSettings />
-            </TabsContent>
-            <TabsContent value="about" className="mt-6">
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <About />
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
-    </div>
+    </Tabs>
   );
 };

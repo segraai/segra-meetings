@@ -15,6 +15,8 @@ export interface CalendarStatus {
   connected: boolean;
   account_email: string | null;
   has_credentials: boolean;
+  /** This build includes Segra's own OAuth client: no setup needed */
+  has_builtin_client: boolean;
   needs_reconnect: boolean;
 }
 

@@ -10,6 +10,7 @@ import { LoaderIcon } from "lucide-react";
 import { useConfig } from "@/contexts/ConfigContext";
 import { usePaginatedTranscripts } from "@/hooks/usePaginatedTranscripts";
 import { parseSummaryContent } from "@/lib/summary-content";
+import { wasTranscribedAfterMeeting } from "@/lib/post-meeting-transcription";
 
 interface MeetingDetailsResponse {
   id: string;
@@ -33,6 +34,8 @@ function MeetingDetailsContent() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [shouldAutoGenerate, setShouldAutoGenerate] = useState<boolean>(false);
+  // Stays true once auto-generation was triggered, through the moment it starts running
+  const [autoGenerateTriggered, setAutoGenerateTriggered] = useState<boolean>(false);
   const [hasCheckedAutoGen, setHasCheckedAutoGen] = useState<boolean>(false);
 
   // Use pagination hook for efficient transcript loading
@@ -67,8 +70,9 @@ function MeetingDetailsContent() {
   const setupAutoGeneration = useCallback(async () => {
     if (hasCheckedAutoGen) return; // Only check once
 
-    // Only auto-generate if navigated from recording
-    if (source !== 'recording') {
+    // Only auto-generate if navigated from recording, or once a recording's
+    // transcribe-after-meeting job has finished
+    if (source !== 'recording' && !(meetingId && wasTranscribedAfterMeeting(meetingId))) {
       console.log('Not from recording navigation, skipping auto-generation');
       setHasCheckedAutoGen(true);
       return;
@@ -89,6 +93,7 @@ function MeetingDetailsContent() {
       if (currentConfig && currentConfig.model) {
         console.log('Using existing model from DB:', currentConfig.model);
         setShouldAutoGenerate(true);
+        setAutoGenerateTriggered(true);
         setHasCheckedAutoGen(true);
         return;
       }
@@ -108,6 +113,7 @@ function MeetingDetailsContent() {
         });
 
         setShouldAutoGenerate(true);
+        setAutoGenerateTriggered(true);
       } else {
         console.log('⚠️ No model configured and gemma3:1b not found');
       }
@@ -116,7 +122,7 @@ function MeetingDetailsContent() {
     }
 
     setHasCheckedAutoGen(true);
-  }, [hasCheckedAutoGen, checkForGemmaModel, source, isAutoSummary]);
+  }, [hasCheckedAutoGen, checkForGemmaModel, source, isAutoSummary, meetingId]);
 
   // Sync meeting metadata from pagination hook to meeting details state
   useEffect(() => {
@@ -172,6 +178,7 @@ function MeetingDetailsContent() {
     // Reset auto-generation state to allow new meeting to be checked
     setHasCheckedAutoGen(false);
     setShouldAutoGenerate(false);
+    setAutoGenerateTriggered(false);
   }, [meetingId]);
 
   useEffect(() => {
@@ -276,6 +283,11 @@ function MeetingDetailsContent() {
     meeting={meetingDetails}
     summaryData={meetingSummary}
     shouldAutoGenerate={shouldAutoGenerate}
+    isAwaitingAutoSummary={
+      (source === 'recording' || wasTranscribedAfterMeeting(meetingDetails.id))
+      && isAutoSummary
+      && (!hasCheckedAutoGen || autoGenerateTriggered)
+    }
     onAutoGenerateComplete={() => setShouldAutoGenerate(false)}
     onMeetingUpdated={async () => {
       // Refetch meeting details to get updated title from backend

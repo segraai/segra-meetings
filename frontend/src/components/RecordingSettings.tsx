@@ -14,6 +14,7 @@ export interface RecordingPreferences {
   file_format: string;
   preferred_mic_device: string | null;
   preferred_system_device: string | null;
+  transcribe_after_meeting: boolean;
 }
 
 interface RecordingSettingsProps {
@@ -26,7 +27,8 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     auto_save: true,
     file_format: 'mp4',
     preferred_mic_device: null,
-    preferred_system_device: null
+    preferred_system_device: null,
+    transcribe_after_meeting: true
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -81,6 +83,13 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     await Analytics.track('auto_save_recording_toggled', {
       enabled: enabled.toString()
     });
+  };
+
+  const handleTranscriptionTimingChange = async (afterMeeting: boolean) => {
+    if (afterMeeting === preferences.transcribe_after_meeting) return;
+    const newPreferences = { ...preferences, transcribe_after_meeting: afterMeeting };
+    setPreferences(newPreferences);
+    await savePreferences(newPreferences);
   };
 
   const handleDeviceChange = async (devices: SelectedDevices) => {
@@ -221,6 +230,65 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
           </div>
         </div>
       )}
+
+      {/* When to transcribe */}
+      <div className="p-4 border rounded-lg space-y-3">
+        <div>
+          <div className="font-medium">When to Transcribe</div>
+          <div className="text-sm text-gray-600">
+            Choose when your meeting audio is turned into text.
+          </div>
+        </div>
+        <div role="radiogroup" aria-label="When to transcribe" className="grid gap-2 sm:grid-cols-2">
+          {[
+            {
+              afterMeeting: true,
+              title: 'After the meeting',
+              badge: 'Recommended',
+              description: 'Records during the call and transcribes the whole recording once it ends. More accurate, especially for non-English speech, and keeps your computer free during the call.',
+            },
+            {
+              afterMeeting: false,
+              title: 'Live during the meeting',
+              description: 'See the transcript as people speak. Transcribing in real time will slow your computer down a bit during the call.',
+            },
+          ].map(option => {
+            const selected = preferences.transcribe_after_meeting === option.afterMeeting;
+            return (
+              <button
+                key={option.title}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => handleTranscriptionTimingChange(option.afterMeeting)}
+                disabled={saving || isRecording}
+                className={`text-left rounded-lg border p-3 transition-colors disabled:opacity-60 ${selected ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-gray-200 hover:bg-gray-50'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${selected ? 'border-blue-600' : 'border-gray-400'}`}>
+                    {selected && <span className="h-2 w-2 rounded-full bg-blue-600" />}
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">{option.title}</span>
+                  {option.badge && (
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-800">
+                      {option.badge}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 pl-6 text-xs text-gray-600">{option.description}</p>
+              </button>
+            );
+          })}
+        </div>
+        {isRecording && (
+          <p className="text-xs text-gray-500">This applies from your next recording.</p>
+        )}
+        {preferences.transcribe_after_meeting && !preferences.auto_save && (
+          <p className="text-xs text-gray-500">
+            Audio is still saved for these recordings, since it's needed for the transcript.
+          </p>
+        )}
+      </div>
 
       {/* Recording Notification Toggle */}
       <div className="flex items-center justify-between p-4 border rounded-lg">

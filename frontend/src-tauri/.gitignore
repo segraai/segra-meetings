@@ -5,3 +5,5 @@
 
 Cargo.lock
 Cargo.toml.orig
+# Built-in Google OAuth client (see build.rs)
+google-oauth.local.json

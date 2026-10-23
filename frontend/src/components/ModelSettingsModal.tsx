@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { SubscriptionCliSetup, subscriptionCliFor } from '@/components/SubscriptionCliSetup';
+import { SegraAccountSetup } from '@/components/SegraAccountSetup';
 import { useSidebar } from './Sidebar/SidebarProvider';
 import { invoke } from '@tauri-apps/api/core';
 import { Button } from '@/components/ui/button';
@@ -32,7 +34,7 @@ import { toast } from 'sonner';
 import { OPENAI_COMPATIBLE_PRESETS } from '@/lib/openai-compatible-presets';
 
 export interface ModelConfig {
-  provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai';
+  provider: 'ollama' | 'groq' | 'claude' | 'openai' | 'openrouter' | 'builtin-ai' | 'custom-openai' | 'segra' | 'claude-cli' | 'codex-cli' | 'gemini-cli';
   model: string;
   whisperModel: string;
   apiKey?: string | null;
@@ -105,7 +107,8 @@ const GROQ_FALLBACK_MODELS = [
 interface ModelSettingsModalProps {
   modelConfig: ModelConfig;
   setModelConfig: (config: ModelConfig | ((prev: ModelConfig) => ModelConfig)) => void;
-  onSave: (config: ModelConfig) => void;
+  /** Persists the settings; called automatically as they change */
+  onSave: (config: ModelConfig) => void | Promise<void>;
   skipInitialFetch?: boolean; // Optional: skip fetching config from backend if parent manages it
   layout?: 'inline' | 'dialog';
 }
@@ -125,6 +128,34 @@ export function ModelSettingsModal({
   const updateProviderApiKey = configContext?.updateProviderApiKey;
 
   const [models, setModels] = useState<OllamaModel[]>([]);
+  // Subscription CLIs: their model lists, and whether the CLI is installed and signed in
+  const [cliModels, setCliModels] = useState<Record<string, string[]>>({});
+  const [isSubscriptionCliReady, setIsSubscriptionCliReady] = useState(false);
+  // Segra: models with a funded provider, and whether the user is signed in
+  const [segraModels, setSegraModels] = useState<string[]>([]);
+  const [isSegraReady, setIsSegraReady] = useState(false);
+  useEffect(() => {
+    if (modelConfig.provider !== 'segra') return;
+    invoke<string[]>('segra_list_models')
+      .then((list) => {
+        setSegraModels(list);
+        // Keep the chosen model if Segra still offers it; otherwise start with the first one
+        if (list.length > 0) {
+          setModelConfig((prev: ModelConfig) =>
+            prev.provider === 'segra' && !list.includes(prev.model) ? { ...prev, model: list[0] } : prev,
+          );
+        }
+      })
+      .catch((error) => console.error('Failed to load Segra models:', error));
+  }, [modelConfig.provider]);
+  const selectedCli = subscriptionCliFor(modelConfig.provider);
+  useEffect(() => {
+    if (!selectedCli || cliModels[modelConfig.provider]) return;
+    const provider = modelConfig.provider;
+    invoke<string[]>('subscription_cli_models', { cli: selectedCli })
+      .then(list => setCliModels(prev => ({ ...prev, [provider]: list })))
+      .catch(error => console.error('Failed to load CLI models:', error));
+  }, [selectedCli, modelConfig.provider, cliModels]);
   const [error, setError] = useState<string>('');
   const [apiKey, setApiKey] = useState<string | null>(modelConfig.apiKey || null);
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
@@ -257,6 +288,11 @@ export function ModelSettingsModal({
     openrouter: openRouterModels.map((m) => m.id),
     'builtin-ai': builtinAiModels.map((m) => m.name),
     'custom-openai': customOpenAIModel ? [customOpenAIModel] : [], // User specifies model manually
+    segra: segraModels.length > 0 ? segraModels : ['0GM-1.0-35B-A3B'],
+    // Subscription CLIs report their own model lists
+    'claude-cli': cliModels['claude-cli'] ?? ['sonnet', 'opus', 'haiku'],
+    'codex-cli': cliModels['codex-cli'] ?? ['default'],
+    'gemini-cli': cliModels['gemini-cli'] ?? ['auto', 'pro', 'flash', 'flash-lite'],
   };
 
   const requiresApiKey =
@@ -278,6 +314,8 @@ export function ModelSettingsModal({
   const isDoneDisabled =
     (requiresApiKey && (!apiKey || (typeof apiKey === 'string' && !apiKey.trim()))) ||
     (modelConfig.provider === 'ollama' && ollamaEndpointChanged) ||
+    (!!selectedCli && !isSubscriptionCliReady) ||
+    (modelConfig.provider === 'segra' && !isSegraReady) ||
     isCustomOpenAIInvalid;
 
   useEffect(() => {
@@ -691,8 +729,63 @@ export function ModelSettingsModal({
       updateProviderApiKey(updatedConfig.provider, updatedConfig.apiKey);
     }
 
-    onSave(updatedConfig);
+    await onSave(updatedConfig);
   };
+
+  // Autosave: save shortly after changes stop, but only once the form is complete
+  // (a half-typed API key or unfinished setup never replaces working settings)
+  const AUTOSAVE_DELAY_MS = 800;
+  const [saveState, setSaveState] = useState<'saved' | 'saving' | 'incomplete'>('saved');
+  const formSignature = JSON.stringify([
+    modelConfig.provider,
+    modelConfig.model,
+    apiKey?.trim() || null,
+    ollamaEndpoint.trim(),
+    customOpenAIEndpoint.trim(),
+    customOpenAIModel.trim(),
+    customOpenAIApiKey.trim(),
+    customMaxTokens,
+    customTemperature,
+    customTopP,
+  ]);
+  const lastSavedSignature = useRef<string | null>(null);
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
+
+  const isConfigLoading = configContext?.isModelConfigLoading ?? false;
+
+  useEffect(() => {
+    // Wait for the saved settings to load: until then the form shows placeholders
+    if (isConfigLoading) {
+      lastSavedSignature.current = null;
+      return;
+    }
+    // The form as first shown is what's already saved
+    if (lastSavedSignature.current === null) {
+      lastSavedSignature.current = formSignature;
+      return;
+    }
+    if (formSignature === lastSavedSignature.current) {
+      setSaveState('saved');
+      return;
+    }
+    if (isDoneDisabled) {
+      setSaveState('incomplete');
+      return;
+    }
+    setSaveState('saving');
+    const timer = setTimeout(async () => {
+      try {
+        await handleSaveRef.current();
+        lastSavedSignature.current = formSignature;
+        setSaveState('saved');
+      } catch (error) {
+        console.error('Autosave of model settings failed:', error);
+        setSaveState('incomplete');
+      }
+    }, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [formSignature, isDoneDisabled, isConfigLoading]);
 
   // Test custom OpenAI connection
   const testCustomOpenAIConnection = async () => {
@@ -900,8 +993,12 @@ export function ModelSettingsModal({
                 <SelectValue placeholder="Select provider" />
               </SelectTrigger>
               <SelectContent className="max-h-64 overflow-y-auto">
+                <SelectItem value="segra">Segra (private models, your Segra account)</SelectItem>
                 <SelectItem value="builtin-ai">Built-in AI (Offline, No API needed)</SelectItem>
-                <SelectItem value="claude">Claude</SelectItem>
+                <SelectItem value="claude-cli">Claude (your subscription, via Claude Code)</SelectItem>
+                <SelectItem value="codex-cli">ChatGPT (your plan, via Codex)</SelectItem>
+                <SelectItem value="gemini-cli">Gemini (your Google account, via Gemini CLI)</SelectItem>
+                <SelectItem value="claude">Claude (API key)</SelectItem>
                 <SelectItem value="custom-openai">OpenAI-compatible (any provider)</SelectItem>
                 <SelectItem value="groq">Groq</SelectItem>
                 <SelectItem value="ollama">Ollama</SelectItem>
@@ -969,6 +1066,8 @@ export function ModelSettingsModal({
             )}
           </div>
         </div>
+
+        {modelConfig.provider === 'segra' && <SegraAccountSetup onReadyChange={setIsSegraReady} />}
 
         {/* Custom OpenAI Configuration Section */}
         {modelConfig.provider === 'custom-openai' && (
@@ -1457,6 +1556,18 @@ export function ModelSettingsModal({
           </div>
         )}
 
+        {/* Subscription CLI setup (Claude Code, Codex, Gemini CLI) */}
+        {selectedCli && (
+          <div className="mt-6">
+            <SubscriptionCliSetup
+              key={selectedCli}
+              cli={selectedCli}
+              model={modelConfig.model}
+              onReadyChange={setIsSubscriptionCliReady}
+            />
+          </div>
+        )}
+
         {/* Built-in AI Models Section */}
         {modelConfig.provider === 'builtin-ai' && (
           <div className="mt-6">
@@ -1491,16 +1602,11 @@ export function ModelSettingsModal({
       </div> */}
 
       <div className="mt-6 flex justify-end">
-        <Button
-          className={cn(
-            'px-4 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500',
-            isDoneDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-          )}
-          onClick={handleSave}
-          disabled={isDoneDisabled}
-        >
-          Save
-        </Button>
+        <span className="flex items-center gap-1.5 text-xs text-gray-500" aria-live="polite">
+          {saveState === 'saving' && <><RefreshCw className="h-3 w-3 animate-spin" /> Saving...</>}
+          {saveState === 'saved' && <><Check className="h-3 w-3" /> Saved</>}
+          {saveState === 'incomplete' && 'Finish the settings above to save them'}
+        </span>
       </div>
     </div>
   );

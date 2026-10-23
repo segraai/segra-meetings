@@ -10,24 +10,27 @@ module.exports = {
   	extend: {
   		fontFamily: {
   			sans: [
-  				'var(--font-source-sans-3)'
+  				'var(--font-inter)'
+  			],
+  			heading: [
+  				'var(--font-space-grotesk)'
   			]
   		},
   		colors: {
-  			// Brand accent: burgundy. The UI uses `blue-*` classes for its accent color,
-  			// so the blue scale is remapped here instead of in every component.
+  			// Brand accent: Segra teal (segra.ai primary, hsl(168 75% 38%)). The UI uses `blue-*`
+  			// classes for its accent color, so the blue scale is remapped here instead of in every component.
   			blue: {
-  				'50': '#fbf3f4',
-  				'100': '#f6e3e6',
-  				'200': '#edc7cd',
-  				'300': '#dd9ba5',
-  				'400': '#c76574',
-  				'500': '#a83a4c',
-  				'600': '#8c1c2f',
-  				'700': '#761526',
-  				'800': '#611120',
-  				'900': '#4f0f1b',
-  				'950': '#2e060d'
+  				'50': '#effbf8',
+  				'100': '#d6f5ef',
+  				'200': '#adebde',
+  				'300': '#74dcc8',
+  				'400': '#2dd2b1',
+  				'500': '#1fbd9d',
+  				'600': '#18aa8d',
+  				'700': '#138b73',
+  				'800': '#116f5c',
+  				'900': '#0f5748',
+  				'950': '#073129'
   			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',

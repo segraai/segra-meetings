@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronRight, File, Settings, ChevronLeftCircle, ChevronRightCircle, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, Upload, Folder, FolderPlus, FolderInput, Layers, Check, MoreHorizontal, Play, Pause } from 'lucide-react';
+import { ChevronDown, ChevronRight, File, Settings, PanelLeftClose, PanelLeftOpen, Calendar, StickyNote, Home, Trash2, Mic, Square, Plus, Search, Pencil, NotebookPen, SearchIcon, X, Upload, Folder, FolderPlus, FolderInput, Layers, Check, MoreHorizontal, Play, Pause } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useSidebar, ALL_MEETINGS_ID } from './SidebarProvider';
 import {
@@ -851,25 +851,24 @@ const Sidebar: React.FC = () => {
 
   return (
     <div className="fixed top-0 left-0 h-screen z-40">
-      {/* Floating collapse button */}
-      <button
-        onClick={toggleCollapse}
-        className="absolute -right-6 top-20 z-50 p-1 bg-white hover:bg-gray-100 rounded-full shadow-lg border"
-        style={{ transform: 'translateX(50%)' }}
-      >
-        {isCollapsed ? (
-          <ChevronRightCircle className="w-6 h-6" />
-        ) : (
-          <ChevronLeftCircle className="w-6 h-6" />
-        )}
-      </button>
-
       <div
         className={`h-screen bg-white border-r shadow-sm flex flex-col transition-all duration-300 ${isCollapsed ? 'w-16' : 'w-64'
           }`}
       >
         {/*  Header with traffic light spacing */}
-        <div className="flex-shrink-0 h-22 flex items-center">
+        <div className="relative flex-shrink-0 h-22 flex items-center">
+          {/* Collapse button: top-right inside the sidebar, or atop the collapsed rail */}
+          <div className={isCollapsed ? 'flex w-full justify-center pt-3' : 'absolute right-2 top-3 z-10'}>
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              className="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            >
+              {isCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
+            </button>
+          </div>
 
           {/* Title container */}
 

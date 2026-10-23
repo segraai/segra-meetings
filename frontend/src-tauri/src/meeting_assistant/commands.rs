@@ -11,6 +11,8 @@ pub struct CalendarStatus {
     pub connected: bool,
     pub account_email: Option<String>,
     pub has_credentials: bool,
+    /// This build includes Segra's own OAuth client, so no setup is needed
+    pub has_builtin_client: bool,
     /// Signed in before, but Google no longer accepts the sign-in
     pub needs_reconnect: bool,
 }
@@ -36,8 +38,8 @@ pub async fn calendar_get_status<R: Runtime>(app: AppHandle<R>) -> Result<Calend
     Ok(CalendarStatus {
         connected: google_calendar::is_connected(&app),
         account_email: google_calendar::account_email(&app),
-        has_credentials: !config.google_client_id.trim().is_empty()
-            && !config.google_client_secret.trim().is_empty(),
+        has_credentials: settings::google_client(&config).is_some(),
+        has_builtin_client: settings::builtin_google_client().is_some(),
         needs_reconnect: google_calendar::needs_reconnect(&app),
     })
 }

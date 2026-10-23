@@ -1,127 +1,127 @@
-# Meetily Privacy Policy
+# Privacy Policy for Segra Meetings
 
-*Last updated: [Current Date]*
+**Effective Date:** October 17, 2026  
+**Last Updated:** October 23, 2026
 
-## Our Privacy-First Commitment
+At **Segra Meetings** ("we", "us", or "our"), accessible at [https://segra.ai/meetings](https://segra.ai/meetings), privacy is the foundational principle of our product. Segra Meetings is designed as a **local-first desktop application** that captures, transcribes, and organizes meetings directly on your device.
 
-Meetily is built on the principle that your meeting data should remain private and under your control. This privacy policy explains how we handle data in our open-source meeting assistant.
-
-## Data Processing Philosophy
-
-### Local-First Processing
-- **Meeting transcription**: Processed entirely on your device using local Whisper models
-- **Audio recordings**: Never transmitted to external servers
-- **Meeting content**: Remains on your infrastructure
-- **AI summaries**: Generated locally or through your chosen LLM provider
-
-### Your Data Ownership
-- You own all meeting data, transcripts, and recordings
-- Data is stored locally on your device
-- No vendor lock-in - export your data anytime
-- Complete control over data retention and deletion
-
-## Usage Analytics
-
-### What We Collect
-Usage analytics is optional and off by default. When you choose to enable it, Meetily collects minimal, anonymized usage data:
-
-**Application Usage:**
-- Feature usage patterns (which tools you use most)
-- Session duration and frequency
-- Performance metrics (transcription success rates, error frequencies)
-- UI interaction patterns (button clicks, navigation flows)
-
-**Technical Metrics:**
-- Application version and platform information
-- Error logs and crash reports (anonymized)
-- Performance benchmarks (processing times, resource usage)
-
-### What We DON'T Collect
-We never collect:
-- ❌ Meeting content, transcripts, or recordings
-- ❌ Personal information or identifiable data
-- ❌ File names, meeting titles, or metadata
-- ❌ Audio data or voice patterns
-- ❌ Participant names or contact information
-- ❌ LLM conversations or AI-generated content
-
-### Why We Collect This Data
-When enabled, analytics helps us with:
-- **Product Quality**: Identifying and fixing bugs that impact user experience
-- **Performance Optimization**: Understanding resource usage and system bottlenecks
-- **Security**: Detecting potential security issues and vulnerabilities
-- **Feature Development**: Making data-driven decisions about new features
-- **Open Source Sustainability**: Ensuring the project meets user needs effectively
-
-### Analytics Implementation
-- **Provider**: PostHog (privacy-focused analytics platform)
-- **Default**: Off by default; analytics starts only after you enable it in settings
-- **Anonymization**: All data linked to generated user IDs only - no personal identification
-- **Data retention**: 12 months maximum, then automatically deleted
-- **Encryption**: All data encrypted in transit using industry-standard protocols
-- **Location**: Data processed in accordance with PostHog's privacy policy
-- **Access Control**: Strictly limited to core development team members
-
-## Third-Party Services
-
-### LLM Providers (Optional)
-If you choose to use external LLM providers:
-- **Anthropic Claude**: Subject to Anthropic's privacy policy
-- **Groq**: Subject to Groq's privacy policy
-- **Local Ollama**: Processed entirely on your device
-
-### Analytics Service (Optional)
-- **PostHog**: Used for usage analytics when enabled
-- **Data**: Only anonymized usage patterns, no meeting content
-- **Control**: Completely optional, off by default, and user-controlled
-
-## Your Privacy Rights
-
-### Data Control
-- **Access**: View all data stored locally on your device
-- **Export**: Export your data in standard formats
-- **Delete**: Remove all data from your device
-
-
-### Analytics Transparency
-- **Open source**: Full analytics implementation available for review in our source code
-- **Opt-in**: New and existing installs have analytics disabled until you turn it on
-- **Questions**: Contact us for any analytics-related concerns
-
-## Data Security
-
-### Local Security
-- Data encrypted at rest using your device's security features
-- No transmission of sensitive meeting data
-- Standard file system permissions protect your data
-
-### Open Source Transparency
-- Full source code available for security review
-- Community-audited privacy implementations
-- No hidden data collection or tracking
-
-## Changes to This Policy
-
-We will notify users of any material changes to this privacy policy through:
-- Updates to this document in our GitHub repository
-- Release notes for application updates
-- In-app notifications for significant privacy changes
-
-## Contact Us
-
-For privacy-related questions or concerns:
-- **GitHub Issues**: [Create an issue](https://github.com/Zackriya-Solutions/meeting-minutes/issues)
-- **Email**: [Contact form](https://www.zackriya.com/service-interest-form/)
-- **Community**: [Discord](https://discord.gg/crRymMQBFH)
-
-## Open Source Commitment
-
-As an open-source project under MIT license, you can:
-- Review our complete privacy implementation
-- Modify data handling to meet your requirements
-- Deploy entirely on your own infrastructure
-- Contribute to privacy improvements
+This Privacy Policy explains what information Segra Meetings accesses, how it is processed and stored, and our strict practices regarding third-party integrations, including Google user data.
 
 ---
 
-*This privacy policy applies to Meetily v0.0.5 and later versions. For enterprise deployments, additional privacy controls may be available.*
+## 1. Local-First Processing Philosophy
+
+Segra Meetings runs locally on your computer. Under default operation:
+- **Audio Recordings:** Microphone and system audio streams are captured and stored solely on your local hard drive.
+- **Transcriptions:** Speech-to-text models (such as local Whisper or Parakeet) process audio directly on your device using your computer's CPU/GPU. No audio recordings are ever transmitted to our servers.
+- **Meeting Notes & Transcripts:** Your meeting titles, transcripts, attendee notes, and summaries are saved in a local database stored entirely on your computer.
+
+---
+
+## 2. Google User Data & Calendar Integration
+
+Segra Meetings provides an optional integration with Google Calendar to display your schedule, remind you before calls begin, and automatically name your meeting recordings.
+
+### 2.1 Google Data Accessed
+When you authenticate using "Connect Google Calendar", Segra Meetings uses OAuth 2.0 PKCE desktop authorization to request access to the following scope:
+- `https://www.googleapis.com/auth/calendar.readonly`
+
+Through this scope, the application accesses:
+- **Calendar Event Metadata:** Event titles (summaries), descriptions, start and end dates/times, event status, and calendar event URLs.
+- **Meeting Links:** Conference data (e.g., Google Meet, Zoom, or Microsoft Teams links).
+- **Attendee Information:** Attendee names and email addresses.
+- **Account Identity:** Primary email address of the authenticated Google account (used solely to indicate the active connection state in the application interface).
+
+The application reads events from your primary calendar covering the window of **one day prior to seven days in advance**. The application **never** requests write, edit, or delete permissions, and **never** creates, alters, or deletes your Google Calendar events.
+
+### 2.2 How We Use Google Data
+Google user data is used strictly for the following client-side features:
+1. **Upcoming Meeting Display:** Showing upcoming events on your application home screen.
+2. **Meeting Reminders:** Displaying local desktop notifications shortly before a scheduled meeting begins.
+3. **Automatic Recording Titling:** Matching active recordings to current calendar events to name your meeting notes automatically.
+4. **Meeting Context:** Associating attendee lists with your meeting notes for easy reference.
+
+### 2.3 Storage and Security of Google Data
+- **On-Device Storage Only:** All retrieved calendar data and OAuth authentication tokens (access and refresh tokens) are stored **exclusively on your local computer** within the application's protected local data directory (in the local SQLite database and `meeting_assistant.json`).
+- **No Developer Server Transmission:** Your calendar events and tokens are never uploaded, proxied, or transmitted to Segra servers or any third-party analytics servers.
+- **Direct Connection:** All API communications occur directly between your device and Google's official endpoints (`https://www.googleapis.com`).
+
+### 2.4 Sharing and Disclosure of Google Data
+- **No Sale of Data:** We do not sell, rent, lease, or monetize Google user data under any circumstances.
+- **No Advertising or Profiling:** Google user data is never shared with advertising networks, data brokers, or marketing platforms.
+- **No AI Model Training:** **Google user data is never used to train, retrain, fine-tune, or improve generalized artificial intelligence or machine learning models.**
+
+### 2.5 Data Retention, Revocation, and Deletion
+- **In-App Disconnect:** You can disconnect your Google account at any time via **Settings → Calendar & Meetings → Disconnect**. When clicked, the application immediately:
+  1. Revokes the authentication token directly with Google (`https://oauth2.googleapis.com/revoke`).
+  2. Permanently deletes all stored tokens and cached calendar events from your local computer.
+- **Google Account Permissions:** You can also revoke access externally at any time via your [Google Account Permissions Page](https://myaccount.google.com/permissions).
+
+### 2.6 Google API Limited Use Disclosure
+> **Segra Meetings' use and transfer of information received from Google APIs to any other app will adhere to the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.**
+
+---
+
+## 3. Meeting Notes and AI Summarization
+
+Segra Meetings allows you to generate summaries combining your typed notes and meeting transcripts:
+- **Local Models (Default):** Summarization using built-in local models (via `llama-cpp` sidecar) or local Ollama instances processes text 100% locally on your machine.
+- **Subscription CLIs:** If you use the "Use your subscription" feature (Claude Code, OpenAI Codex CLI, or Gemini CLI), prompts are sent through your own locally installed command-line tools under your respective direct account agreements.
+- **External AI Providers (Optional):** If you choose to configure an external cloud API key (such as Anthropic Claude, OpenAI, or Groq), the transcript and prompt text are sent directly to that provider over encrypted HTTPS connections in accordance with that provider’s privacy terms. We do not intermediate or retain these requests.
+- **Segra Models (Optional):** If you choose Segra models, summaries and meeting chat run on private models in secure enclaves (TEEs), paid from your Segra account. See section 4.
+
+---
+
+## 4. Segra Account (Optional)
+
+Segra models require signing in to a Segra account. Segra's server handles sign-in, model access and billing only. **Your transcripts, notes, prompts and summaries never pass through Segra's server**: the app sends them directly to the model provider over HTTPS, using a short-lived session that Segra's server issues.
+
+When you use a Segra account, Segra's server receives:
+- **Sign-in:** a sign-in request carrying the app's name ("Segra Meetings") and your computer's name, so the access key can be listed and recognized in your Segra account. You approve the sign-in on the Segra website.
+- **Model sessions:** your access key and the name of the model you chose, each time the app starts a session with a model.
+- **Usage reports:** after each response, the provider, the model and the number of input and output tokens, used to charge your credits.
+- **Balance checks:** requests to show your remaining credits.
+
+The access key is stored only in the app's local database on your computer. You can sign out in the app, or revoke the key from your Segra account at any time. Your Segra account itself (email address, credits and usage history) is held by Segra and covered by Segra's own privacy policy on the Segra website.
+
+---
+
+## 5. Telemetry and Analytics
+
+Segra Meetings prioritizes user privacy:
+- Any crash reporting or anonymous usage metrics are **strictly opt-in and disabled by default**.
+- When disabled, no telemetry is gathered or transmitted.
+- Even when enabled, telemetry **never** includes audio recordings, transcripts, meeting titles, calendar events, personal notes, or identifiable account details.
+
+---
+
+## 6. Security
+
+We protect your data by:
+- Storing all application databases and audio files locally within your operating system's standard user-permission-restricted application directories.
+- Using standard OAuth 2.0 PKCE with state verification and loopback redirection to secure token exchanges during sign-in.
+- Supporting secure token revocation upon disconnection.
+
+---
+
+## 7. Your Rights and Choices
+
+Apart from your optional Segra account (section 4), all user data resides locally on your computer:
+- **Access & Portability:** You have direct access to your SQLite database, audio recordings, and markdown notes at all times.
+- **Deletion:** You can delete individual meetings, clear transcripts, disconnect integrations, or completely wipe application data simply by uninstalling the application and deleting its application data directory.
+
+---
+
+## 8. Changes to This Privacy Policy
+
+We may update this Privacy Policy from time to time to reflect product updates or legal requirements. Material changes will be noted with an updated "Last Updated" date at the top of this document, and notable updates will be surfaced in application release notes.
+
+---
+
+## 9. Contact Us
+
+If you have questions or concerns regarding this Privacy Policy or your data, please contact us:
+
+- **Email:** [support@segra.ai](mailto:support@segra.ai)  
+- **Application Homepage:** [https://segra.ai/meetings](https://segra.ai/meetings)  
+- **Developer & Company Website:** [https://segra.ai](https://segra.ai)

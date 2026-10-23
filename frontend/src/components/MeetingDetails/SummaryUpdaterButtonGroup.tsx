@@ -1,51 +1,26 @@
 "use client";
 
 import { Button } from '@/components/ui/button';
-import { ButtonGroup } from '@/components/ui/button-group';
-import { Copy, Save, Loader2 } from 'lucide-react';
+import { Check, Copy, Loader2 } from 'lucide-react';
 import Analytics from '@/lib/analytics';
 
 interface SummaryUpdaterButtonGroupProps {
-  isSaving: boolean;
+  /** Edits not yet autosaved */
   isDirty: boolean;
-  onSave: () => Promise<void>;
   onCopy: () => Promise<void>;
 }
 
-export function SummaryUpdaterButtonGroup({
-  isSaving,
-  isDirty,
-  onSave,
-  onCopy,
-}: SummaryUpdaterButtonGroupProps) {
+/** Autosave status and copy action for the AI notes */
+export function SummaryUpdaterButtonGroup({ isDirty, onCopy }: SummaryUpdaterButtonGroupProps) {
   return (
-    <ButtonGroup>
-      {/* Save button */}
-      <Button
-        variant="outline"
-        size="sm"
-        className={`${isDirty ? 'bg-green-200' : ""}`}
-        title={isSaving ? "Saving" : "Save Changes"}
-        onClick={() => {
-          Analytics.trackButtonClick('save_changes', 'meeting_details');
-          onSave();
-        }}
-        disabled={isSaving}
-      >
-        {isSaving ? (
-          <>
-            <Loader2 className="animate-spin" />
-            <span className="hidden @[40rem]:inline">Saving...</span>
-          </>
+    <div className="flex items-center gap-3">
+      <span className="flex items-center gap-1 text-xs text-gray-400" aria-live="polite">
+        {isDirty ? (
+          <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>
         ) : (
-          <>
-            <Save />
-            <span className="hidden @[40rem]:inline">Save</span>
-          </>
+          <><Check className="h-3 w-3" /> Saved</>
         )}
-      </Button>
-
-      {/* Copy button */}
+      </span>
       <Button
         variant="outline"
         size="sm"
@@ -59,7 +34,6 @@ export function SummaryUpdaterButtonGroup({
         <Copy />
         <span className="hidden @[40rem]:inline">Copy</span>
       </Button>
-
-    </ButtonGroup>
+    </div>
   );
 }

@@ -115,7 +115,6 @@ export function SummaryModelSettings({ refetchTrigger }: SummaryModelSettingsPro
       const { emit } = await import('@tauri-apps/api/event');
       await emit('model-config-updated', config);
 
-      toast.success('Model settings saved successfully');
     } catch (error) {
       console.error('Error saving model config:', error);
       toast.error('Failed to save model settings');

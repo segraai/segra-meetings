@@ -88,6 +88,56 @@ export function CalendarSettings() {
     );
   }
 
+  // The user's own OAuth client: required without a built-in client, optional (advanced) with one
+  const ownClientSetup = (
+    <>
+      <details className="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-600" open={!status.has_credentials}>
+        <summary className="cursor-pointer font-medium text-gray-800">One-time setup: create a Google OAuth client</summary>
+        <ol className="mt-2 list-decimal space-y-1 pl-5">
+          <li>
+            In Google Cloud Console, create a project and enable the <strong>Google Calendar API</strong>.
+          </li>
+          <li>Configure the OAuth consent screen (External, add yourself as a test user).</li>
+          <li>
+            Under{' '}
+            <button
+              className="inline-flex items-center gap-0.5 text-blue-600 hover:underline"
+              onClick={() => meetingAssistantService.openExternal(GOOGLE_CREDENTIALS_URL)}
+            >
+              Credentials <ExternalLink className="h-3 w-3" />
+            </button>
+            , create an <strong>OAuth client ID</strong> of type <strong>Desktop app</strong>.
+          </li>
+          <li>Paste its client ID and secret below, then click Connect.</li>
+        </ol>
+      </details>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-gray-700">Client ID</span>
+          <input
+            value={settings.google_client_id}
+            onChange={e => setSettings({ ...settings, google_client_id: e.target.value })}
+            onBlur={() => update({})}
+            placeholder="xxxx.apps.googleusercontent.com"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+          />
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block font-medium text-gray-700">Client secret</span>
+          <input
+            type="password"
+            value={settings.google_client_secret}
+            onChange={e => setSettings({ ...settings, google_client_secret: e.target.value })}
+            onBlur={() => update({})}
+            placeholder="GOCSPX-…"
+            className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
+          />
+        </label>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-4">
       {/* Google Calendar */}
@@ -145,57 +195,21 @@ export function CalendarSettings() {
           </div>
         ) : (
           <div className="space-y-4">
-            <details className="rounded-md bg-gray-50 px-4 py-3 text-sm text-gray-600" open={!status.has_credentials}>
-              <summary className="cursor-pointer font-medium text-gray-800">One-time setup: create a Google OAuth client</summary>
-              <ol className="mt-2 list-decimal space-y-1 pl-5">
-                <li>
-                  In Google Cloud Console, create a project and enable the <strong>Google Calendar API</strong>.
-                </li>
-                <li>Configure the OAuth consent screen (External, add yourself as a test user).</li>
-                <li>
-                  Under{' '}
-                  <button
-                    className="inline-flex items-center gap-0.5 text-blue-600 hover:underline"
-                    onClick={() => meetingAssistantService.openExternal(GOOGLE_CREDENTIALS_URL)}
-                  >
-                    Credentials <ExternalLink className="h-3 w-3" />
-                  </button>
-                  , create an <strong>OAuth client ID</strong> of type <strong>Desktop app</strong>.
-                </li>
-                <li>Paste its client ID and secret below, then click Connect.</li>
-              </ol>
-            </details>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-gray-700">Client ID</span>
-                <input
-                  value={settings.google_client_id}
-                  onChange={e => setSettings({ ...settings, google_client_id: e.target.value })}
-                  onBlur={() => update({})}
-                  placeholder="xxxx.apps.googleusercontent.com"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
-                />
-              </label>
-              <label className="text-sm">
-                <span className="mb-1 block font-medium text-gray-700">Client secret</span>
-                <input
-                  type="password"
-                  value={settings.google_client_secret}
-                  onChange={e => setSettings({ ...settings, google_client_secret: e.target.value })}
-                  onBlur={() => update({})}
-                  placeholder="GOCSPX-…"
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-400"
-                />
-              </label>
-            </div>
+            {status.has_builtin_client ? (
+              <details className="text-sm text-gray-600">
+                <summary className="cursor-pointer text-gray-500 hover:text-gray-800">
+                  Advanced: use your own Google OAuth client
+                </summary>
+                <div className="mt-3 space-y-4">{ownClientSetup}</div>
+              </details>
+            ) : ownClientSetup}
 
             <button
               onClick={async () => {
                 await update({});
                 await connect();
               }}
-              disabled={isConnecting || !settings.google_client_id.trim() || !settings.google_client_secret.trim()}
+              disabled={isConnecting || (!status.has_builtin_client && (!settings.google_client_id.trim() || !settings.google_client_secret.trim()))}
               className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {isConnecting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -239,7 +253,7 @@ export function CalendarSettings() {
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="mb-2 text-lg font-semibold text-gray-900">When a call starts</h3>
         <p className="mb-4 text-sm text-gray-600">
-          Meetily notices when Zoom, Teams, Slack or a browser (Google Meet) starts using your microphone.
+          Segra Meetings notices when Zoom, Teams, Slack or a browser (Google Meet) starts using your microphone.
         </p>
         <div className="space-y-2">
           {AUTO_RECORD_OPTIONS.map(option => (

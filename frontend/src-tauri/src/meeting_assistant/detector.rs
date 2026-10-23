@@ -31,7 +31,7 @@ impl CallApp {
 /// Classifies an app capturing the microphone. Returns None for apps that aren't call apps.
 pub fn classify_app(name: &str) -> Option<CallApp> {
     let name = name.to_lowercase();
-    if name.contains("meetily") {
+    if name.contains("meetily") || name.contains("segra_meetings") {
         return None;
     }
     if name.contains("zoom") {
@@ -162,6 +162,7 @@ Source Output #60
         assert_eq!(classify_app("google-chrome"), Some(CallApp::Browser));
         assert_eq!(classify_app("firefox-bin"), Some(CallApp::Browser));
         assert_eq!(classify_app("meetily"), None);
+        assert_eq!(classify_app("segra_meetings"), None);
         assert_eq!(classify_app("obs"), None);
     }
 }

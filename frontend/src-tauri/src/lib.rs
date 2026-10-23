@@ -39,7 +39,7 @@ pub(crate) use perf_trace;
 /// (e.g. for a side-by-side test build).
 pub const APP_NAME: &str = match option_env!("MEETILY_APP_NAME") {
     Some(name) => name,
-    None => "Meetily",
+    None => "Segra Meetings",
 };
 
 pub mod analytics;
@@ -59,6 +59,7 @@ pub mod groq;
 pub mod knowledge;
 pub mod meeting_assistant;
 pub mod openrouter;
+pub mod segra;
 pub mod parakeet_engine;
 pub mod state;
 pub mod summary;
@@ -778,8 +779,22 @@ pub fn run() {
             api::api_get_custom_openai_config,
             api::api_test_custom_openai_connection,
             api::api_list_custom_openai_models,
+            // Segra account (device sign-in, models, balance)
+            segra::commands::segra_get_account,
+            segra::commands::segra_start_sign_in,
+            segra::commands::segra_finish_sign_in,
+            segra::commands::segra_cancel_sign_in,
+            segra::commands::segra_sign_out,
+            segra::commands::segra_list_models,
+            segra::commands::segra_get_balance,
             // Summary commands
             summary::commands::api_process_transcript,
+            summary::subscription_cli::subscription_cli_status,
+            summary::subscription_cli::subscription_cli_models,
+            summary::subscription_cli::subscription_cli_login_start,
+            summary::subscription_cli::subscription_cli_login_submit_code,
+            summary::subscription_cli::subscription_cli_login_cancel,
+            summary::subscription_cli::subscription_cli_test,
             summary::commands::api_get_summary,
             summary::commands::api_save_meeting_summary,
             summary::commands::api_get_meeting_summary_language,
@@ -861,6 +876,9 @@ pub fn run() {
             utils::open_system_settings,
             // Retranscription commands
             audio::retranscription::start_retranscription_command,
+            audio::live_levels::get_recording_audio_levels,
+            audio::playback::get_meeting_audio_path,
+            audio::playback::read_meeting_audio,
             audio::retranscription::cancel_retranscription_command,
             audio::retranscription::is_retranscription_in_progress_command,
             // Import audio commands

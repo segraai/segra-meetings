@@ -842,6 +842,7 @@ impl AudioPipeline {
                     // STEP 1: Add raw audio to ring buffer for mixing
                     // Microphone audio is already normalized at capture level (AudioCapture)
                     // System audio remains raw
+                    super::live_levels::record_chunk(&chunk.device_type, &chunk.data);
                     self.ring_buffer.add_samples(chunk.device_type.clone(), chunk.data);
 
                     // STEP 2: Mix audio in fixed windows when both streams have sufficient data

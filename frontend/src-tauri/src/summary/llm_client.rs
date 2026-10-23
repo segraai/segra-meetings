@@ -220,6 +220,11 @@ pub enum LLMProvider {
     OpenRouter,
     BuiltInAI,
     CustomOpenAI,
+    /// Segra account: private TEE models, sessions minted per request (`crate::segra`)
+    Segra,
+    /// The user's own subscription, through its command-line tool
+    /// (Claude Code, Codex or Gemini CLI)
+    SubscriptionCli(crate::summary::subscription_cli::CliKind),
 }
 
 impl LLMProvider {
@@ -233,6 +238,10 @@ impl LLMProvider {
             "openrouter" => Ok(Self::OpenRouter),
             "builtin-ai" | "local-llama" | "localllama" => Ok(Self::BuiltInAI),
             "custom-openai" => Ok(Self::CustomOpenAI),
+            "segra" => Ok(Self::Segra),
+            other if crate::summary::subscription_cli::CliKind::from_provider(other).is_some() => Ok(
+                Self::SubscriptionCli(crate::summary::subscription_cli::CliKind::from_provider(other).unwrap()),
+            ),
             _ => Err(format!("Unsupported LLM provider: {}", s)),
         }
     }
@@ -298,6 +307,28 @@ pub(crate) async fn generate_summary(
         .map_err(|e| e.to_string());
     }
 
+    // Subscriptions run through the user's local CLI, not HTTP
+    if let LLMProvider::SubscriptionCli(kind) = provider {
+        return crate::summary::subscription_cli::generate(
+            *kind,
+            model_name,
+            system_prompt,
+            user_prompt,
+            app_data_dir,
+            cancellation_token,
+        )
+        .await
+        .map(|content| LlmCompletion {
+            content,
+            reasoning_stripped: false,
+        });
+    }
+
+    // Segra mints a short-lived provider session per request; `api_key` is the Segra account key
+    if provider == &LLMProvider::Segra {
+        return crate::segra::generate(client, model_name, api_key, system_prompt, user_prompt, cancellation_token).await;
+    }
+
     let (api_url, mut headers) = match provider {
         LLMProvider::OpenAI => (
             "https://api.openai.com/v1/chat/completions".to_string(),
@@ -344,9 +375,9 @@ pub(crate) async fn generate_summary(
             );
             ("https://api.anthropic.com/v1/messages".to_string(), header_map)
         }
-        LLMProvider::BuiltInAI => {
-            // This case is handled earlier with early returns
-            unreachable!("BuiltInAI is handled before this match statement")
+        LLMProvider::BuiltInAI | LLMProvider::SubscriptionCli(_) | LLMProvider::Segra => {
+            // These cases are handled earlier with early returns
+            unreachable!("BuiltInAI, SubscriptionCli and Segra are handled before this match statement")
         }
     };
 
@@ -922,6 +953,8 @@ fn provider_name(provider: &LLMProvider) -> &str {
         LLMProvider::BuiltInAI => "Built-in AI",
         LLMProvider::OpenRouter => "OpenRouter",
         LLMProvider::CustomOpenAI => "Custom OpenAI",
+        LLMProvider::Segra => "Segra",
+        LLMProvider::SubscriptionCli(_) => "Subscription CLI",
     }
 }
 

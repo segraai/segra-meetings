@@ -148,10 +148,7 @@ export function SummaryGeneratorButtonGroup({
             <DialogTitle>Model Settings</DialogTitle>
           </VisuallyHidden>
           <ModelSettingsModal
-            onSave={async (config) => {
-              await onSaveModelConfig(config);
-              setSettingsDialogOpen(false);
-            }}
+            onSave={onSaveModelConfig}
             modelConfig={modelConfig}
             setModelConfig={setModelConfig}
             skipInitialFetch={true}

@@ -375,6 +375,10 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
     openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
     'builtin-ai': [],
     'custom-openai': [],
+    segra: ['0GM-1.0-35B-A3B'],
+    'claude-cli': ['sonnet', 'opus', 'haiku'],
+    'codex-cli': ['default'],
+    'gemini-cli': ['auto', 'pro', 'flash', 'flash-lite'],
   };
 
   // Toggle confidence indicator with localStorage persistence

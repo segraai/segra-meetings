@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
-import { APP_NAME } from '@/lib/appName';
+import { APP_NAME, APP_TAG } from '@/lib/appName';
 
 // Upstream project this app is built on (MIT License: keep this credit)
 const UPSTREAM_NAME = 'Meetily';
@@ -34,7 +34,7 @@ export function About() {
         <div className="p-6 space-y-6">
             <div className="text-center">
                 <Image src="icon_128x128.png" alt={APP_NAME} width={64} height={64} className="mx-auto mb-3" />
-                <h1 className="text-xl font-bold text-gray-900">{APP_NAME}</h1>
+                <h1 className="text-xl font-bold text-gray-900">{APP_NAME} {APP_TAG}</h1>
                 {currentVersion && <p className="text-sm text-gray-500">Version {currentVersion}</p>}
                 <p className="mt-2 text-sm text-gray-600">Private meeting notes that stay on your computer.</p>
             </div>

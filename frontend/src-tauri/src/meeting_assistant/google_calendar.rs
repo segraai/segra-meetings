@@ -43,11 +43,9 @@ struct TokenResponse {
 /// Runs the browser sign-in flow and stores the resulting tokens. Returns the account email.
 pub async fn connect<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
     let config = settings::load_settings(app);
-    if config.google_client_id.trim().is_empty() || config.google_client_secret.trim().is_empty() {
-        return Err(anyhow!(
-            "Add your Google OAuth client ID and secret in Settings before connecting"
-        ));
-    }
+    let (client_id, client_secret) = settings::google_client(&config).ok_or_else(|| {
+        anyhow!("Add your Google OAuth client ID and secret in Settings before connecting")
+    })?;
 
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
@@ -69,7 +67,7 @@ pub async fn connect<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
     let auth_url = url::Url::parse_with_params(
         AUTH_URL,
         &[
-            ("client_id", config.google_client_id.trim()),
+            ("client_id", client_id.as_str()),
             ("redirect_uri", redirect_uri.as_str()),
             ("response_type", "code"),
             ("scope", SCOPE),
@@ -96,8 +94,8 @@ pub async fn connect<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
         .post(TOKEN_URL)
         .form(&[
             ("code", code.as_str()),
-            ("client_id", config.google_client_id.trim()),
-            ("client_secret", config.google_client_secret.trim()),
+            ("client_id", client_id.as_str()),
+            ("client_secret", client_secret.as_str()),
             ("redirect_uri", redirect_uri.as_str()),
             ("grant_type", "authorization_code"),
             ("code_verifier", verifier.as_str()),
@@ -226,12 +224,13 @@ async fn access_token<R: Runtime>(app: &AppHandle<R>) -> Result<String> {
         return Ok(tokens.access_token);
     }
 
-    let config = settings::load_settings(app);
+    let (client_id, client_secret) = settings::google_client(&settings::load_settings(app))
+        .ok_or_else(|| anyhow!(RECONNECT_ERROR))?;
     let response = http_client()
         .post(TOKEN_URL)
         .form(&[
-            ("client_id", config.google_client_id.trim()),
-            ("client_secret", config.google_client_secret.trim()),
+            ("client_id", client_id.as_str()),
+            ("client_secret", client_secret.as_str()),
             ("refresh_token", tokens.refresh_token.as_str()),
             ("grant_type", "refresh_token"),
         ])

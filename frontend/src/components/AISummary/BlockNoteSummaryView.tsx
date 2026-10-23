@@ -26,7 +26,11 @@ interface BlockNoteSummaryViewProps {
     created_at: string;
   };
   onDirtyChange?: (isDirty: boolean) => void;
+  /** Save edits automatically shortly after the user stops typing */
+  autoSave?: boolean;
 }
+
+const AUTOSAVE_DELAY_MS = 1000;
 
 export interface BlockNoteSummaryViewRef {
   saveSummary: () => Promise<void>;
@@ -73,13 +77,16 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
   error = null,
   onRegenerateSummary,
   meeting,
-  onDirtyChange
+  onDirtyChange,
+  autoSave = false,
 }, ref) => {
   const { format, data } = detectSummaryFormat(summaryData);
   const [isDirty, setIsDirty] = useState(false);
   const [currentBlocks, setCurrentBlocks] = useState<Block[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const isContentLoaded = useRef(false);
+  // Bumped on every edit, so a save only clears the dirty flag if nothing changed meanwhile
+  const editVersion = useRef(0);
 
   // Create BlockNote editor for markdown parsing
   const editor = useCreateBlockNote({
@@ -121,6 +128,7 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
   const handleEditorChange = useCallback((blocks: Block[]) => {
     // Only set dirty flag if content has finished loading
     if (isContentLoaded.current) {
+      editVersion.current += 1;
       setCurrentBlocks(blocks);
       setIsDirty(true);
     }
@@ -137,6 +145,7 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
     if (!onSave || !isDirty) return;
 
     setIsSaving(true);
+    const savingVersion = editVersion.current;
     try {
       console.log('💾 Saving BlockNote content...');
 
@@ -154,7 +163,7 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
       }
 
       await onSave(saveData);
-      setIsDirty(false);
+      if (editVersion.current === savingVersion) setIsDirty(false);
       console.log('✅ Save successful');
     } catch (error) {
       console.error('❌ Save failed:', error);
@@ -163,6 +172,26 @@ export const BlockNoteSummaryView = forwardRef<BlockNoteSummaryViewRef, BlockNot
       setIsSaving(false);
     }
   }, [onSave, isDirty, currentBlocks, editor]);
+
+  // Autosave: save once edits pause, and flush pending edits when leaving the page
+  const latestSave = useRef(handleSave);
+  latestSave.current = handleSave;
+  const pendingAutosave = useRef(false);
+  pendingAutosave.current = autoSave && isDirty;
+
+  useEffect(() => {
+    if (!autoSave || !isDirty) return;
+    const timer = setTimeout(() => {
+      latestSave.current().catch(error => console.error('Autosave failed:', error));
+    }, AUTOSAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [autoSave, isDirty, currentBlocks]);
+
+  useEffect(() => () => {
+    if (pendingAutosave.current) {
+      latestSave.current().catch(error => console.error('Autosave on leave failed:', error));
+    }
+  }, []);
 
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({

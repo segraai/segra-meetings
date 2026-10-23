@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { subscriptionCliFor } from '@/components/SubscriptionCliSetup';
 import {
   CancelSummaryResponse,
   MeetingSummary,
@@ -474,6 +475,17 @@ export function useSummaryGeneration({
         });
         if (models.length === 0) {
           showPreflightError('No Ollama models found. Please download gemma3:1b from Model Settings.');
+          return;
+        }
+      }
+      const cli = subscriptionCliFor(modelConfig.provider);
+      if (cli) {
+        const status = await invokeTauri<{ installed: boolean; loggedIn: boolean }>('subscription_cli_status', { cli });
+        if (!status.installed || !status.loggedIn) {
+          showPreflightError(!status.installed
+            ? 'The command-line tool for this summary model isn\'t installed. Finish the setup in Settings → Summary.'
+            : 'You\'re not signed in to the summary model. Sign in from Settings → Summary.');
+          onOpenModelSettings?.();
           return;
         }
       }

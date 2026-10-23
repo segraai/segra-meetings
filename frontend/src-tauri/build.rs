@@ -20,8 +20,41 @@ fn main() {
     // Download and bundle FFmpeg binary at build-time to eliminate runtime download delays
     ffmpeg::ensure_ffmpeg_binary();
     onnxruntime::ensure_onnxruntime_runtime();
+    embed_google_oauth_client();
 
     tauri_build::build()
+}
+
+/// Builds the Google OAuth client into the app, so "Connect Google Calendar" works
+/// without users creating their own. Read from SEGRA_GOOGLE_CLIENT_ID /
+/// SEGRA_GOOGLE_CLIENT_SECRET, or from google-oauth.local.json (git-ignored):
+/// {"client_id": "...apps.googleusercontent.com", "client_secret": "GOCSPX-..."}.
+/// Without either, users enter their own client in Settings.
+fn embed_google_oauth_client() {
+    const FILE: &str = "google-oauth.local.json";
+    println!("cargo:rerun-if-changed={}", FILE);
+    println!("cargo:rerun-if-env-changed=SEGRA_GOOGLE_CLIENT_ID");
+    println!("cargo:rerun-if-env-changed=SEGRA_GOOGLE_CLIENT_SECRET");
+
+    let from_env = std::env::var("SEGRA_GOOGLE_CLIENT_ID")
+        .ok()
+        .zip(std::env::var("SEGRA_GOOGLE_CLIENT_SECRET").ok());
+    let from_file = || {
+        let text = std::fs::read_to_string(FILE).ok()?;
+        let json: serde_json::Value = serde_json::from_str(&text).ok()?;
+        Some((
+            json.get("client_id")?.as_str()?.to_string(),
+            json.get("client_secret")?.as_str()?.to_string(),
+        ))
+    };
+
+    match from_env.or_else(from_file) {
+        Some((id, secret)) if !id.trim().is_empty() && !secret.trim().is_empty() => {
+            println!("cargo:rustc-env=SEGRA_GOOGLE_CLIENT_ID={}", id.trim());
+            println!("cargo:rustc-env=SEGRA_GOOGLE_CLIENT_SECRET={}", secret.trim());
+        }
+        _ => println!("cargo:warning=No built-in Google OAuth client: users must enter their own in Settings"),
+    }
 }
 
 /// Detects GPU acceleration capabilities and provides build guidance

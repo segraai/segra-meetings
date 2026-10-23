@@ -1,45 +1,29 @@
 "use client";
 
-import { Transcript, TranscriptSegmentData } from '@/types';
-import { TranscriptView } from '@/components/TranscriptView';
+import { TranscriptSegmentData } from '@/types';
 import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptView';
 import { TranscriptButtonGroup } from './TranscriptButtonGroup';
-import { useMemo } from 'react';
+import { FileText, Loader2 } from 'lucide-react';
 
 interface TranscriptPanelProps {
-  transcripts: Transcript[];
-  customPrompt: string;
-  onPromptChange: (value: string) => void;
+  segments: TranscriptSegmentData[];
   onCopyTranscript: () => void;
-  onOpenMeetingFolder: () => Promise<void>;
-  isRecording: boolean;
-  disableAutoScroll?: boolean;
-
-  // Optional pagination props (when using virtualization)
-  usePagination?: boolean;
-  segments?: TranscriptSegmentData[];
   hasMore?: boolean;
   isLoadingMore?: boolean;
   totalCount?: number;
   loadedCount?: number;
   onLoadMore?: () => void;
-
-  // Retranscription props
-  meetingId?: string;
+  meetingId: string;
   meetingFolderPath?: string | null;
   onRefetchTranscripts?: () => Promise<void>;
+  /** Progress (0-100) while the recording is still being transcribed */
+  transcriptionProgress?: number | null;
 }
 
+/** The Transcript tab of a saved meeting */
 export function TranscriptPanel({
-  transcripts,
-  customPrompt,
-  onPromptChange,
-  onCopyTranscript,
-  onOpenMeetingFolder,
-  isRecording,
-  disableAutoScroll = false,
-  usePagination = false,
   segments,
+  onCopyTranscript,
   hasMore,
   isLoadingMore,
   totalCount,
@@ -48,47 +32,56 @@ export function TranscriptPanel({
   meetingId,
   meetingFolderPath,
   onRefetchTranscripts,
+  transcriptionProgress = null,
 }: TranscriptPanelProps) {
-  // Convert transcripts to segments if pagination is not used but we want virtualization
-  const convertedSegments = useMemo(() => {
-    if (usePagination && segments) {
-      return segments;
-    }
-    // Convert transcripts to segments for virtualization
-    return transcripts.map(t => ({
-      id: t.id,
-      timestamp: t.audio_start_time ?? 0,
-      endTime: t.audio_end_time,
-      text: t.text,
-      confidence: t.confidence,
-    }));
-  }, [transcripts, usePagination, segments]);
+  const count = totalCount ?? segments.length;
+
+  if (count === 0) {
+    const transcribing = transcriptionProgress !== null;
+    return (
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
+        {transcribing ? (
+          <Loader2 className="mb-4 h-10 w-10 animate-spin text-blue-500" />
+        ) : (
+          <FileText className="mb-4 h-12 w-12 text-gray-300" />
+        )}
+        <h3 className="text-lg font-semibold text-gray-900">
+          {transcribing ? 'Creating the transcript' : 'No transcript'}
+        </h3>
+        <p className="mt-1 max-w-md text-sm text-gray-500">
+          {transcribing
+            ? `The recording is being transcribed (${Math.round(transcriptionProgress)}%).`
+            : 'No speech was transcribed for this meeting.'}
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-full min-w-0 w-full bg-white flex-col relative @container">
-      {/* Title area */}
-      <div className="p-4 border-b border-gray-200">
-        <TranscriptButtonGroup
-          transcriptCount={usePagination ? (totalCount ?? convertedSegments.length) : (transcripts?.length || 0)}
-          onCopyTranscript={onCopyTranscript}
-          onOpenMeetingFolder={onOpenMeetingFolder}
-          meetingId={meetingId}
-          meetingFolderPath={meetingFolderPath}
-          onRefetchTranscripts={onRefetchTranscripts}
-        />
+    <div className="flex h-full min-w-0 w-full flex-col bg-white @container">
+      <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-2">
+        <span className="text-xs text-gray-500">{count} segments</span>
+        <div className="ml-auto">
+          <TranscriptButtonGroup
+            transcriptCount={count}
+            onCopyTranscript={onCopyTranscript}
+            meetingId={meetingId}
+            meetingFolderPath={meetingFolderPath}
+            onRefetchTranscripts={onRefetchTranscripts}
+          />
+        </div>
       </div>
 
-      {/* Transcript content - use virtualized view for better performance */}
       <div className="flex-1 overflow-hidden pb-4">
         <VirtualizedTranscriptView
-          segments={convertedSegments}
-          isRecording={isRecording}
+          segments={segments}
+          isRecording={false}
           isPaused={false}
           isProcessing={false}
           isStopping={false}
           enableStreaming={false}
           showConfidence={true}
-          disableAutoScroll={disableAutoScroll}
+          disableAutoScroll={true}
           hasMore={hasMore}
           isLoadingMore={isLoadingMore}
           totalCount={totalCount}
@@ -96,18 +89,6 @@ export function TranscriptPanel({
           onLoadMore={onLoadMore}
         />
       </div>
-
-      {/* Custom prompt input at bottom of transcript section */}
-      {!isRecording && convertedSegments.length > 0 && (
-        <div className="p-1 border-t border-gray-200">
-          <textarea
-            placeholder="Add context for AI summary. For example people involved, meeting overview, objective etc..."
-            className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm min-h-[80px] resize-y"
-            value={customPrompt}
-            onChange={(e) => onPromptChange(e.target.value)}
-          />
-        </div>
-      )}
     </div>
   );
 }
