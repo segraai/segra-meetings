@@ -1,6 +1,6 @@
 name: Release
 
-# Builds macOS (Apple Silicon), Windows and Linux installers and attaches them
+# Builds macOS (Apple Silicon and Intel), Windows and Linux installers and attaches them
 # to a draft GitHub release named after the version in tauri.conf.json.
 # Trigger: push a tag matching that version (git tag v0.4.1 && git push origin v0.4.1),
 # or run it from the Actions tab.
@@ -29,6 +29,13 @@ jobs:
             target: aarch64-apple-darwin
             args: --target aarch64-apple-darwin
             llama-features: --features metal
+          # Intel Macs. The llama helper runs on the CPU there: llama.cpp's Metal
+          # backend is slow or unreliable on Intel and AMD Mac GPUs.
+          - name: macOS (Intel)
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+            args: --target x86_64-apple-darwin
+            llama-features: ""
           - name: Windows
             os: windows-latest
             target: x86_64-pc-windows-msvc
@@ -85,6 +92,8 @@ jobs:
       - name: Use OpenSSL 3
         if: runner.os == 'macOS'
         run: |
+          # Build for macOS 13 (Ventura) and later, not just the runner's own version.
+          echo "MACOSX_DEPLOYMENT_TARGET=13.0" >> "$GITHUB_ENV"
           brew list openssl@3 >/dev/null 2>&1 || brew install openssl@3
           PREFIX=$(brew --prefix openssl@3)
           echo "OPENSSL_ROOT_DIR=$PREFIX" >> "$GITHUB_ENV"
