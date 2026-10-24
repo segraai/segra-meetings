@@ -151,11 +151,11 @@ async fn wait_for_auth_code(listener: &TcpListener, expected_state: &str) -> Res
 
         let (outcome, message) = match (param("code"), param("error")) {
             (Some(code), _) if param("state").as_deref() == Some(expected_state) => {
-                (Some(Ok(code)), "Meetily is now connected to Google Calendar. You can close this tab.")
+                (Some(Ok(code)), "Segra Meetings is now connected to Google Calendar. You can close this tab.")
             }
             (Some(_), _) => (
                 Some(Err(anyhow!("Google sign-in returned an unexpected state"))),
-                "Sign-in failed: unexpected state. Please try again from Meetily.",
+                "Sign-in failed: unexpected state. Please try again from Segra Meetings.",
             ),
             (None, Some(error)) => (
                 Some(Err(anyhow!("Google sign-in was not completed: {}", error))),

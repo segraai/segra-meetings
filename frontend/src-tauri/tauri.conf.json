@@ -1,9 +1,9 @@
 {
     "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-    "productName": "meetily",
+    "productName": "Segra Meetings",
     "mainBinaryName": "segra_meetings",
     "version": "0.4.1",
-    "identifier": "com.meetily.ai",
+    "identifier": "ai.segra.meetings",
     "build": {
         "frontendDist": "../out",
         "devUrl": "http://localhost:3118",

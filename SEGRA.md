@@ -26,6 +26,10 @@ The models list comes from `GET /models` (public): models with a funded provider
 
 Release builds (`tauri build`) use the deployed server, `https://web.segra.ai/api/app/v1`. Debug builds (`tauri dev`) use the local dev server, `http://localhost:3000/api/app/v1` (`npm run dev` in segra-web). `SEGRA_BASE_URL` (at run time, or baked in at build time) overrides either, for example to run dev against production.
 
+### App identity
+
+`productName` is "Segra Meetings" and `identifier` is `ai.segra.meetings` (`tauri.conf.json`); the Rust package and `package.json` are `segra-meetings`. The app keeps its data in the identifier's folder (on Linux `~/.local/share/ai.segra.meetings`). Builds before 2026-10-23 used `com.meetily.ai`; their data doesn't move over by itself. Some internal names still say Meetily on purpose: the recordings folder (`meetily-recordings`), the templates and models folders, `MEETILY_*` build variables, the `Meetily/<version>` User-Agent, and credits to the upstream project.
+
 ### Errors the user sees
 
 | Situation | Message |
@@ -85,6 +89,20 @@ Segra accounts can now have their own wallet, with balances in **credits**.
 - `segra_get_balance` returns `{credits, usd, status}`. The account panel shows "N credits left", "Setting up your account…" or "Balance used up", and falls back to "$X in credits left" for older accounts.
 - Session errors 403 ("<model> is available after a top-up…") and 409 ("Setting up your account…") are shown exactly as Segra words them.
 
+### 2026-10-23: renamed from Meetily to Segra Meetings
+
+Installers and the app were still called "meetily" (`com.meetily.ai`), which could clash with a real Meetily install. What changed (see [App identity](#app-identity)):
+- `tauri.conf.json`: `productName` `meetily` → `Segra Meetings`, `identifier` `com.meetily.ai` → `ai.segra.meetings` (matches Segra Desktop's `ai.segra.desktop`). Installers are now named "Segra Meetings".
+- Package names `meetily` → `segra-meetings`: `frontend/src-tauri/Cargo.toml` (with `Cargo.lock`) and `frontend/package.json`. The built binary is `target/<profile>/segra-meetings`; the bundled one was already `segra_meetings` (`mainBinaryName`).
+- Text users see now says Segra Meetings: the speech-recognition error ("Restart Segra Meetings"), the Google Calendar sign-in pages, and the meeting chat assistant's system prompt. Also the build message in `build.rs`.
+- `scripts/build-test-copy.sh`: test copies default to `ai.segra.meetings.dev` and seed from `~/.local/share/ai.segra.meetings`.
+- Left as Meetily on purpose: the recordings, templates and models folder names (renaming them would split recordings and re-download models), `MEETILY_*` build variables, the `Meetily/<version>` User-Agent, the upstream credit on the About page, and the import screens for old Meetily installs.
+
+Moving an existing install over (done by hand on the dev machine, the only one that had used it):
+- The new identifier keeps data in a new folder, and nothing moves it automatically. With the app closed, the old folder was copied: `cp -a ~/.local/share/com.meetily.ai ~/.local/share/ai.segra.meetings` (3.7 GB: meetings database, settings, the Segra sign-in, downloaded models). On macOS the folders are under `~/Library/Application Support/`, on Windows under `%APPDATA%`.
+- Once the new build opens with everything in place, delete `~/.local/share/com.meetily.ai`.
+- The old Linux package is named `meetily`, so the new one installs alongside it: remove it with `sudo apt remove meetily`.
+
 ### Verified
 
 - `cargo check`: clean apart from warnings that were already there. `tsc --noEmit`: clean.
@@ -101,5 +119,4 @@ Segra accounts can now have their own wallet, with balances in **credits**.
 
 ### Still to do
 
-- App identity: `tauri.conf.json` still has `productName: "meetily"` and `identifier: "com.meetily.ai"`, so it can clash with a real Meetily install and get the wrong taskbar icon on Linux.
 - `origin` still points at `Zackriya-Solutions/meetily`. Set up a private repo, with that repo as `upstream`, the same way as Segra Desktop.

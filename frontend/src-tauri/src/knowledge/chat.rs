@@ -37,7 +37,7 @@ pub struct ChatAnswer {
     pub sources: Vec<ChatSource>,
 }
 
-const SYSTEM_PROMPT: &str = "You are Meetily's assistant. You answer questions about the user's past meetings \
+const SYSTEM_PROMPT: &str = "You are Segra Meetings' assistant. You answer questions about the user's past meetings \
 using ONLY the meeting notes and transcripts provided in the context. \
 Be concise and specific. Use Markdown (short paragraphs or bullet lists). \
 When you use information from a meeting, mention it by title and date, e.g. (Weekly sync, Oct 3). \
