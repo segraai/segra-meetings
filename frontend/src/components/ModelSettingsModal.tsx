@@ -19,7 +19,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
-import { Lock, Unlock, Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, ChevronDown, ChevronUp, Download, ExternalLink, Check, ChevronsUpDown } from 'lucide-react';
+import { Lock, Unlock, Eye, EyeOff, RefreshCw, CheckCircle2, XCircle, ChevronDown, ChevronUp, Download, ExternalLink, Check, ChevronsUpDown, ShieldCheck } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
@@ -920,6 +920,63 @@ export function ModelSettingsModal({
     );
   });
 
+  const changeProvider = (value: string) => {
+    const provider = value as ModelConfig['provider'];
+
+    // Clear error state when switching providers
+    setError('');
+
+    // Save current provider's model to localStorage before switching
+    const map = JSON.parse(localStorage.getItem('providerModelMap') || '{}');
+    if (modelConfig.model) {
+      map[modelConfig.provider] = modelConfig.model;
+      localStorage.setItem('providerModelMap', JSON.stringify(map));
+    }
+
+    // Try to restore cached model for the new provider
+    const savedModel = map[provider];
+    const providerModels = modelOptions[provider];
+    const defaultModel = providerModels && providerModels.length > 0
+      ? providerModels[0]
+      : '';
+    const model = (savedModel && providerModels?.includes(savedModel))
+      ? savedModel
+      : defaultModel;
+
+    setModelConfig({
+      ...modelConfig,
+      provider,
+      model,
+    });
+    // API key is now synced automatically via useEffect watching providerApiKeys
+
+    // Load OpenRouter models only when OpenRouter is selected
+    if (provider === 'openrouter') {
+      loadOpenRouterModels();
+    }
+
+    // Load Built-in AI models when selected
+    if (provider === 'builtin-ai') {
+      loadBuiltinAiModels();
+    }
+
+    // Load custom OpenAI config when selected
+    if (provider === 'custom-openai') {
+      invoke<any>('api_get_custom_openai_config').then((config) => {
+        if (config) {
+          setCustomOpenAIEndpoint(config.endpoint || '');
+          setCustomOpenAIModel(config.model || '');
+          setCustomOpenAIApiKey(config.apiKey || '');
+          setCustomMaxTokens(config.maxTokens?.toString() || '');
+          setCustomTemperature(config.temperature?.toString() || '');
+          setCustomTopP(config.topP?.toString() || '');
+        }
+      }).catch((err) => {
+        console.error('Failed to load custom OpenAI config:', err);
+      });
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -932,69 +989,14 @@ export function ModelSettingsModal({
           <div className="flex space-x-2 mt-1">
             <Select
               value={modelConfig.provider}
-              onValueChange={(value) => {
-                const provider = value as ModelConfig['provider'];
-
-                // Clear error state when switching providers
-                setError('');
-
-                // Save current provider's model to localStorage before switching
-                const map = JSON.parse(localStorage.getItem('providerModelMap') || '{}');
-                if (modelConfig.model) {
-                  map[modelConfig.provider] = modelConfig.model;
-                  localStorage.setItem('providerModelMap', JSON.stringify(map));
-                }
-
-                // Try to restore cached model for the new provider
-                const savedModel = map[provider];
-                const providerModels = modelOptions[provider];
-                const defaultModel = providerModels && providerModels.length > 0
-                  ? providerModels[0]
-                  : '';
-                const model = (savedModel && providerModels?.includes(savedModel))
-                  ? savedModel
-                  : defaultModel;
-
-                setModelConfig({
-                  ...modelConfig,
-                  provider,
-                  model,
-                });
-                // API key is now synced automatically via useEffect watching providerApiKeys
-
-                // Load OpenRouter models only when OpenRouter is selected
-                if (provider === 'openrouter') {
-                  loadOpenRouterModels();
-                }
-
-                // Load Built-in AI models when selected
-                if (provider === 'builtin-ai') {
-                  loadBuiltinAiModels();
-                }
-
-                // Load custom OpenAI config when selected
-                if (provider === 'custom-openai') {
-                  invoke<any>('api_get_custom_openai_config').then((config) => {
-                    if (config) {
-                      setCustomOpenAIEndpoint(config.endpoint || '');
-                      setCustomOpenAIModel(config.model || '');
-                      setCustomOpenAIApiKey(config.apiKey || '');
-                      setCustomMaxTokens(config.maxTokens?.toString() || '');
-                      setCustomTemperature(config.temperature?.toString() || '');
-                      setCustomTopP(config.topP?.toString() || '');
-                    }
-                  }).catch((err) => {
-                    console.error('Failed to load custom OpenAI config:', err);
-                  });
-                }
-              }}
+              onValueChange={changeProvider}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select provider" />
               </SelectTrigger>
               <SelectContent className="max-h-64 overflow-y-auto">
-                <SelectItem value="segra">Segra (private models, your Segra account)</SelectItem>
-                <SelectItem value="builtin-ai">Built-in AI (Offline, No API needed)</SelectItem>
+                <SelectItem value="builtin-ai">Built-in AI (on this computer, works offline)</SelectItem>
+                <SelectItem value="segra">Segra (more powerful private models, sealed hardware)</SelectItem>
                 <SelectItem value="claude-cli">Claude (your subscription, via Claude Code)</SelectItem>
                 <SelectItem value="codex-cli">ChatGPT (your plan, via Codex)</SelectItem>
                 <SelectItem value="gemini-cli">Gemini (your Google account, via Gemini CLI)</SelectItem>
@@ -1066,6 +1068,22 @@ export function ModelSettingsModal({
             )}
           </div>
         </div>
+
+        {modelConfig.provider === 'builtin-ai' && (
+          <div className="flex items-start gap-3 rounded-md border bg-muted/40 p-3 text-sm">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="space-y-2">
+              <p className="text-muted-foreground">
+                Want more powerful models, or is the built-in engine a bit slow? Segra runs larger models outside your
+                computer, in a sealed environment protected at the hardware level. Your transcript goes straight to the
+                model, never through Segra.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => changeProvider('segra')}>
+                Use Segra models
+              </Button>
+            </div>
+          </div>
+        )}
 
         {modelConfig.provider === 'segra' && <SegraAccountSetup onReadyChange={setIsSegraReady} />}
 

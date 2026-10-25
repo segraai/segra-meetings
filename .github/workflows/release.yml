@@ -40,7 +40,8 @@ jobs:
             os: windows-latest
             target: x86_64-pc-windows-msvc
             args: --features vulkan
-            llama-features: ""
+            # Uses a dedicated GPU when there is one, the CPU otherwise
+            llama-features: --features vulkan
           - name: Linux
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu

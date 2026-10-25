@@ -103,8 +103,10 @@ export function SegraAccountSetup({ onReadyChange }: { onReadyChange?: (ready: b
       <div className="flex items-start gap-2 text-sm text-muted-foreground">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
         <p>
-          Segra models run inside secure hardware (TEEs). Your transcript goes straight from this computer to the
-          model, never through Segra, and usage is paid from your Segra account.
+          Segra runs more powerful models outside your computer, in a sealed environment protected at the hardware
+          level (a TEE). Use it when you want stronger summaries, or when the built-in engine is a bit slow. Your
+          transcript goes straight from this computer to the model, never through Segra, and usage is paid from your
+          Segra account.
         </p>
       </div>
 

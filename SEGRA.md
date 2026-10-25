@@ -103,6 +103,18 @@ Moving an existing install over (done by hand on the dev machine, the only one t
 - Once the new build opens with everything in place, delete `~/.local/share/com.meetily.ai`.
 - The old Linux package is named `meetily`, so the new one installs alongside it: remove it with `sudo apt remove meetily`.
 
+### 2026-10-24: local first, Segra second
+
+Summaries stay on the computer by default: onboarding downloads the transcription engine and the built-in summary model, as upstream did. In Settings → Summary, Built-in AI is listed first and Segra second. While Built-in AI is selected, a note offers Segra for more powerful models or when the built-in engine is slow, with a "Use Segra models" button (`ModelSettingsModal.tsx`); the Segra panel's text says the same (`SegraAccountSetup.tsx`).
+
+### 2026-10-25: live transcription by default, recording in the Transcript tab
+
+- Transcription is live during the meeting by default again, as in upstream Meetily (`default_transcribe_after_meeting` is `false`). "After the meeting" stays in Settings → Recording for computers where live transcription is laggy. A saved choice is kept.
+- The Recording tab is gone: the recording plays from a bar at the top of the Transcript tab (`RecordingPlayer`, passed to `TranscriptPanel` as `player`), so it can be played while reading. With no saved audio the bar is hidden.
+- On Windows the built-in summary engine (`llama-helper`) is built with Vulkan, like transcription already was, so it runs on a dedicated GPU when there is one and on the CPU otherwise. It now reads the GPU's free memory to decide how much of the model fits (`dedicated_gpu_free_gb`); integrated GPUs are left out. Before, it was CPU-only on Windows.
+- Settings → Transcription says Parakeet only understands European languages and points to Local Whisper for others; an empty transcript says the same.
+- The "Writing your notes" placeholder after a recording only covers the wait before the summary starts, and gives up after 15 seconds (`AUTO_SUMMARY_WAIT_MS`). Before, an empty transcript (for example Korean speech with Parakeet, which only knows European languages) left it showing forever.
+
 ### Verified
 
 - `cargo check`: clean apart from warnings that were already there. `tsc --noEmit`: clean.

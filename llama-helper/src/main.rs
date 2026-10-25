@@ -147,10 +147,38 @@ fn detect_vram_gb() -> f32 {
         }
     }
 
-    /// TODO: Vulkan VRAM detection
+    #[cfg(feature = "vulkan")]
+    {
+        // Without a dedicated GPU the model stays on the CPU
+        return match dedicated_gpu_free_gb() {
+            Some(vram) => {
+                eprintln!("Vulkan VRAM detected: {:.2} GB free", vram);
+                vram
+            }
+            None => {
+                eprintln!("No dedicated GPU found, using CPU only");
+                0.0
+            }
+        };
+    }
 
-    eprintln!("VRAM detection not available, using conservative estimate");
-    4.0 // Conservative fallback
+    #[allow(unreachable_code)]
+    {
+        eprintln!("VRAM detection not available, using conservative estimate");
+        4.0 // Conservative fallback
+    }
+}
+
+/// Free memory of the largest dedicated GPU that a GPU backend (Vulkan) can see. Integrated GPUs
+/// are left out: they share system RAM and are often no faster than the CPU.
+#[cfg_attr(not(feature = "vulkan"), allow(dead_code))]
+fn dedicated_gpu_free_gb() -> Option<f32> {
+    llama_cpp_2::list_llama_ggml_backend_devices()
+        .into_iter()
+        .filter(|d| d.device_type == llama_cpp_2::LlamaBackendDeviceType::Gpu)
+        .map(|d| d.memory_free)
+        .max()
+        .map(|bytes| bytes as f32 / 1024.0 / 1024.0 / 1024.0)
 }
 
 #[cfg(feature = "metal")]

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from 'react';
 import { TranscriptSegmentData } from '@/types';
 import { VirtualizedTranscriptView } from '@/components/VirtualizedTranscriptView';
 import { TranscriptButtonGroup } from './TranscriptButtonGroup';
@@ -18,6 +19,8 @@ interface TranscriptPanelProps {
   onRefetchTranscripts?: () => Promise<void>;
   /** Progress (0-100) while the recording is still being transcribed */
   transcriptionProgress?: number | null;
+  /** The recording's player, shown above the transcript */
+  player?: ReactNode;
 }
 
 /** The Transcript tab of a saved meeting */
@@ -33,32 +36,37 @@ export function TranscriptPanel({
   meetingFolderPath,
   onRefetchTranscripts,
   transcriptionProgress = null,
+  player,
 }: TranscriptPanelProps) {
   const count = totalCount ?? segments.length;
 
   if (count === 0) {
     const transcribing = transcriptionProgress !== null;
     return (
-      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-        {transcribing ? (
-          <Loader2 className="mb-4 h-10 w-10 animate-spin text-blue-500" />
-        ) : (
-          <FileText className="mb-4 h-12 w-12 text-gray-300" />
-        )}
-        <h3 className="text-lg font-semibold text-gray-900">
-          {transcribing ? 'Creating the transcript' : 'No transcript'}
-        </h3>
-        <p className="mt-1 max-w-md text-sm text-gray-500">
-          {transcribing
-            ? `The recording is being transcribed (${Math.round(transcriptionProgress)}%).`
-            : 'No speech was transcribed for this meeting.'}
-        </p>
+      <div className="flex h-full flex-col">
+        {player}
+        <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+          {transcribing ? (
+            <Loader2 className="mb-4 h-10 w-10 animate-spin text-blue-500" />
+          ) : (
+            <FileText className="mb-4 h-12 w-12 text-gray-300" />
+          )}
+          <h3 className="text-lg font-semibold text-gray-900">
+            {transcribing ? 'Creating the transcript' : 'No transcript'}
+          </h3>
+          <p className="mt-1 max-w-md text-sm text-gray-500">
+            {transcribing
+              ? `The recording is being transcribed (${Math.round(transcriptionProgress)}%).`
+              : 'No speech was recognized. If the meeting wasn\'t in a European language, switch to Local Whisper in Settings → Transcription: Parakeet only understands European languages.'}
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex h-full min-w-0 w-full flex-col bg-white @container">
+      {player}
       <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-2">
         <span className="text-xs text-gray-500">{count} segments</span>
         <div className="ml-auto">

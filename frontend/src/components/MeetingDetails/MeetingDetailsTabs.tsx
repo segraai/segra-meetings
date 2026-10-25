@@ -1,16 +1,15 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { AudioLines, FileText, PenLine, Sparkles } from 'lucide-react';
+import { FileText, PenLine, Sparkles } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-export type MeetingDetailsTab = 'notes' | 'transcript' | 'rawNotes' | 'recording';
+export type MeetingDetailsTab = 'notes' | 'transcript' | 'rawNotes';
 
 const TABS = [
   { value: 'notes' as const, label: 'Notes', icon: Sparkles },
   { value: 'transcript' as const, label: 'Transcript', icon: FileText },
   { value: 'rawNotes' as const, label: 'Raw notes', icon: PenLine },
-  { value: 'recording' as const, label: 'Recording', icon: AudioLines },
 ];
 
 interface MeetingDetailsTabsProps {

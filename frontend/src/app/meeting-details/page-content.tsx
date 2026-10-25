@@ -25,6 +25,8 @@ import { listen } from '@tauri-apps/api/event';
 import { usePostMeetingTranscription } from '@/hooks/usePostMeetingTranscription';
 import { retryPostMeetingTranscription, wasTranscribedAfterMeeting } from '@/lib/post-meeting-transcription';
 
+const AUTO_SUMMARY_WAIT_MS = 15_000;
+
 export default function PageContent({
   meeting,
   summaryData,
@@ -72,6 +74,12 @@ export default function PageContent({
   // Ref to store the modal open function from SummaryGeneratorButtonGroup
   const openModelSettingsRef = useRef<(() => void) | null>(null);
   const autoGenerationStartedMeetingIdRef = useRef<string | null>(null);
+  // The "writing your notes" placeholder covers only the wait before the auto-summary starts:
+  // once it has started, the summary's own status takes over, and if it hasn't started within
+  // AUTO_SUMMARY_WAIT_MS (an empty transcript, or a transcript that never reloads) the
+  // placeholder gives up instead of showing forever.
+  const [autoSummaryStarted, setAutoSummaryStarted] = useState(false);
+  const [autoSummaryWaitOver, setAutoSummaryWaitOver] = useState(false);
 
   // Sidebar context
   const { serverAddress } = useSidebar();
@@ -174,6 +182,18 @@ export default function PageContent({
     setActiveTab('notes');
   }, [meeting.id]);
 
+  // Counted from when the transcript is done, not while it's still being made
+  const isTranscribingAfterMeeting = !!postMeetingTranscription;
+  useEffect(() => {
+    setAutoSummaryWaitOver(false);
+    if (isTranscribingAfterMeeting) return;
+    const timer = setTimeout(() => setAutoSummaryWaitOver(true), AUTO_SUMMARY_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [meeting.id, isTranscribingAfterMeeting]);
+  useEffect(() => {
+    setAutoSummaryStarted(false);
+  }, [meeting.id]);
+
   // What the Notes tab shows while the transcript or the summary is still being made
   const hasTranscripts = meetingData.transcripts.length > 0;
   const notesProgress: NotesProgressState | null = postMeetingTranscription
@@ -191,6 +211,8 @@ export default function PageContent({
     : !meetingData.aiSummary
       && summaryGeneration.summaryStatus === 'idle'
       && isAwaitingAutoSummary
+      && !autoSummaryStarted
+      && !autoSummaryWaitOver
       // Transcript just finished: it's being reloaded before the summary starts
       && (hasTranscripts || wasTranscribedAfterMeeting(meeting.id))
       ? { phase: 'summarizing' }
@@ -219,6 +241,7 @@ export default function PageContent({
     }
 
     autoGenerationStartedMeetingIdRef.current = meeting.id;
+    setAutoSummaryStarted(true);
     console.log(`🤖 Auto-generating summary with ${modelConfig.provider}/${modelConfig.model}...`);
     onAutoGenerateComplete?.();
     void summaryGeneration.handleGenerateSummary('');
@@ -290,16 +313,16 @@ export default function PageContent({
               transcriptionProgress={postMeetingTranscription?.status === 'running' || postMeetingTranscription?.status === 'queued'
                 ? postMeetingTranscription.progress
                 : null}
+              player={
+                <RecordingPlayer
+                  meetingId={meeting.id}
+                  active={activeTab === 'transcript'}
+                  onOpenFolder={meetingOperations.handleOpenMeetingFolder}
+                />
+              }
             />
           ),
           rawNotes: <MeetingNotesEditor meetingId={meeting.id} onRegenerate={regenerateWithNotes} />,
-          recording: (
-            <RecordingPlayer
-              meetingId={meeting.id}
-              active={activeTab === 'recording'}
-              onOpenFolder={meetingOperations.handleOpenMeetingFolder}
-            />
-          ),
         }}
       />
     </motion.div>

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 
 interface RecordingPlayerProps {
   meetingId: string;
-  /** The Recording tab is showing: the audio is only loaded once it is */
+  /** The Transcript tab is showing: the audio is only loaded once it is */
   active: boolean;
   onOpenFolder: () => Promise<void>;
 }
@@ -31,7 +31,7 @@ function mimeTypeFor(path: string): string {
   }
 }
 
-/** Plays back a meeting's saved recording */
+/** Plays back a meeting's saved recording: a bar at the top of the Transcript tab */
 export function RecordingPlayer({ meetingId, active, onOpenFolder }: RecordingPlayerProps) {
   const [state, setState] = useState<PlayerState>({ status: 'loading' });
 
@@ -75,58 +75,43 @@ export function RecordingPlayer({ meetingId, active, onOpenFolder }: RecordingPl
     if (blobUrl) URL.revokeObjectURL(blobUrl);
   }, [blobUrl]);
 
-  if (state.status === 'missing' || state.status === 'error') {
+  // No saved audio: nothing to play, so the transcript gets the whole tab
+  if (state.status === 'loading' || state.status === 'missing') return null;
+
+  if (state.status === 'error') {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-        <Music className="mb-4 h-12 w-12 text-gray-300" />
-        <h3 className="text-lg font-semibold text-gray-900">
-          {state.status === 'error' ? "Couldn't load the recording" : 'No recording saved'}
-        </h3>
-        <p className="mt-1 max-w-md text-sm text-gray-500">
-          {state.status === 'error'
-            ? state.message
-            : 'This meeting has no saved audio. Turn on "Save Audio Recordings" in Settings to keep recordings.'}
-        </p>
+      <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-6 py-2 text-xs text-red-600">
+        <Music className="h-4 w-4 shrink-0" />
+        <span className="truncate">Couldn&apos;t load the recording: {state.message}</span>
       </div>
     );
   }
 
-  if (state.status === 'loading') return null;
-
   const fileName = state.path.split(/[\\/]/).pop();
 
   return (
-    <div className="flex h-full flex-col items-center justify-center p-8">
-      <div className="w-full max-w-2xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
-            <Music className="h-5 w-5 text-blue-600" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-gray-900">Meeting recording</p>
-            <p className="truncate text-xs text-gray-500" title={state.path}>{fileName}</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => void onOpenFolder()}>
-            <FolderOpen />
-            Open folder
-          </Button>
+    <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-2">
+      <Music className="h-4 w-4 shrink-0 text-blue-600" aria-hidden />
+      {state.status === 'ready' ? (
+        <audio
+          key={state.url}
+          controls
+          preload="metadata"
+          src={state.url}
+          title={fileName}
+          className="h-9 min-w-0 flex-1"
+          onError={() => setState({ status: 'error', message: 'The audio file could not be played.' })}
+        />
+      ) : (
+        <div className="flex h-9 flex-1 items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading recording...
         </div>
-        {state.status === 'ready' ? (
-          <audio
-            key={state.url}
-            controls
-            preload="metadata"
-            src={state.url}
-            className="w-full"
-            onError={() => setState({ status: 'error', message: 'The audio file could not be played.' })}
-          />
-        ) : (
-          <div className="flex h-12 items-center justify-center gap-2 text-sm text-gray-500">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading recording...
-          </div>
-        )}
-      </div>
+      )}
+      <Button variant="outline" size="sm" onClick={() => void onOpenFolder()} title={state.path}>
+        <FolderOpen />
+        Open folder
+      </Button>
     </div>
   );
 }

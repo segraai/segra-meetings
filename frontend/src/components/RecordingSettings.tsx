@@ -28,7 +28,7 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
     file_format: 'mp4',
     preferred_mic_device: null,
     preferred_system_device: null,
-    transcribe_after_meeting: true
+    transcribe_after_meeting: false
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -242,15 +242,15 @@ export function RecordingSettings({ onSave }: RecordingSettingsProps) {
         <div role="radiogroup" aria-label="When to transcribe" className="grid gap-2 sm:grid-cols-2">
           {[
             {
-              afterMeeting: true,
-              title: 'After the meeting',
-              badge: 'Recommended',
-              description: 'Records during the call and transcribes the whole recording once it ends. More accurate, especially for non-English speech, and keeps your computer free during the call.',
-            },
-            {
               afterMeeting: false,
               title: 'Live during the meeting',
-              description: 'See the transcript as people speak. Transcribing in real time will slow your computer down a bit during the call.',
+              badge: 'Default',
+              description: 'See the transcript as people speak. Transcribing in real time uses some of your computer during the call.',
+            },
+            {
+              afterMeeting: true,
+              title: 'After the meeting',
+              description: 'Records during the call and transcribes the whole recording once it ends. Use this if live transcription makes your computer laggy. Also more accurate, especially for non-English speech.',
             },
           ].map(option => {
             const selected = preferences.transcribe_after_meeting === option.afterMeeting;

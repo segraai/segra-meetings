@@ -121,8 +121,8 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                     <SelectValue placeholder="Select provider" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="parakeet">⚡ Parakeet (Recommended - Real-time / Accurate)</SelectItem>
-                                    <SelectItem value="localWhisper">🏠 Local Whisper (High Accuracy)</SelectItem>
+                                    <SelectItem value="parakeet">⚡ Parakeet (Recommended - Real-time / European languages)</SelectItem>
+                                    <SelectItem value="localWhisper">🏠 Local Whisper (High Accuracy / ~100 languages)</SelectItem>
                                     {/* <SelectItem value="deepgram">☁️ Deepgram (Backup)</SelectItem>
                                     <SelectItem value="elevenLabs">☁️ ElevenLabs</SelectItem>
                                     <SelectItem value="groq">☁️ Groq</SelectItem>
@@ -150,6 +150,12 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                             )}
 
                         </div>
+                        {uiProvider === 'parakeet' && (
+                            <p className="mt-2 mx-1 text-xs text-gray-600">
+                                Parakeet only understands European languages, such as English, French, German, Spanish and Russian.
+                                For Korean, Japanese, Chinese and other languages, use Local Whisper.
+                            </p>
+                        )}
                     </div>
 
                     {uiProvider === 'localWhisper' && (

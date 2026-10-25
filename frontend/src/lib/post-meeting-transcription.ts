@@ -149,9 +149,9 @@ async function runNext() {
 export async function isTranscribeAfterMeetingEnabled(): Promise<boolean> {
   try {
     const prefs = await invoke<{ transcribe_after_meeting?: boolean }>('get_recording_preferences');
-    return prefs.transcribe_after_meeting ?? true;
+    return prefs.transcribe_after_meeting ?? false;
   } catch {
-    return true; // Matches the Rust default
+    return false; // Matches the Rust default
   }
 }
 

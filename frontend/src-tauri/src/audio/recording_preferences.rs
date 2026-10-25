@@ -20,8 +20,8 @@ pub struct RecordingPreferences {
     pub preferred_mic_device: Option<String>,
     #[serde(default)]
     pub preferred_system_device: Option<String>,
-    /// Record only during the meeting and transcribe the saved audio once it ends
-    /// (default). When false, transcribe live during the meeting.
+    /// Record only during the meeting and transcribe the saved audio once it ends.
+    /// When false (default, as in upstream Meetily), transcribe live during the meeting.
     #[serde(default = "default_transcribe_after_meeting")]
     pub transcribe_after_meeting: bool,
     #[cfg(target_os = "macos")]
@@ -30,7 +30,7 @@ pub struct RecordingPreferences {
 }
 
 fn default_transcribe_after_meeting() -> bool {
-    true
+    false
 }
 
 impl Default for RecordingPreferences {
@@ -400,13 +400,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn preferences_saved_before_the_option_default_to_transcribing_after_the_meeting() {
+    fn preferences_saved_before_the_option_default_to_live_transcription() {
         let prefs: RecordingPreferences = serde_json::from_value(serde_json::json!({
             "save_folder": "/tmp/recordings",
             "auto_save": true,
             "file_format": "mp4"
         }))
         .unwrap();
-        assert!(prefs.transcribe_after_meeting);
+        assert!(!prefs.transcribe_after_meeting);
     }
 }
