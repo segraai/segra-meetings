@@ -23,6 +23,10 @@ pub struct ModelStatus {
     pub summary: String,   // Generic field for summary model (Qwen 3.5 or legacy Gemma variants)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_summary_model: Option<String>,
+    /// Transcription engine picked during onboarding: "parakeet" | "localWhisper".
+    /// `parakeet` above tracks whichever engine's model this is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transcription_engine: Option<String>,
 }
 
 impl Default for OnboardingStatus {
@@ -35,6 +39,7 @@ impl Default for OnboardingStatus {
                 parakeet: "not_downloaded".to_string(),
                 summary: "not_downloaded".to_string(),  // Changed from gemma
                 selected_summary_model: None,
+                transcription_engine: None,
             },
             last_updated: chrono::Utc::now().to_rfc3339(),
         }
@@ -172,8 +177,17 @@ pub async fn complete_onboarding<R: Runtime>(
     app: AppHandle<R>,
     state: tauri::State<'_, AppState>,
     model: String,
+    transcription_provider: Option<String>,
+    transcription_model: Option<String>,
 ) -> Result<(), String> {
     info!("Completing onboarding with builtin-ai model: {}", model);
+
+    // Parakeet unless onboarding picked another engine (Whisper, for other languages)
+    let transcription_provider = transcription_provider.unwrap_or_else(|| "parakeet".to_string());
+    let transcription_model = transcription_model.unwrap_or_else(|| match transcription_provider.as_str() {
+        "localWhisper" => crate::config::DEFAULT_WHISPER_MODEL.to_string(),
+        _ => crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
+    });
 
     // Step 1: Save model configuration to SQLite database FIRST
     let pool = state.db_manager.pool();
@@ -191,16 +205,16 @@ pub async fn complete_onboarding<R: Runtime>(
     }
     info!("Saved builtin-ai model config: model={}", model);
 
-    // Save transcription model config (parakeet provider) - always parakeet
+    // Save transcription model config
     if let Err(e) = SettingsRepository::save_transcript_config(
         pool,
-        "parakeet",
-        crate::config::DEFAULT_PARAKEET_MODEL,
+        &transcription_provider,
+        &transcription_model,
     ).await {
         error!("Failed to save transcription model config: {}", e);
         return Err(format!("Failed to save transcription model config: {}", e));
     }
-    info!("Saved transcription model config: provider=parakeet, model={}", crate::config::DEFAULT_PARAKEET_MODEL);
+    info!("Saved transcription model config: provider={}, model={}", transcription_provider, transcription_model);
 
     // Step 2: Only NOW mark onboarding as complete (after DB operations succeed)
     let mut status = load_onboarding_status(&app)
@@ -212,6 +226,7 @@ pub async fn complete_onboarding<R: Runtime>(
     status.model_status.parakeet = "downloaded".to_string();
     status.model_status.summary = "downloaded".to_string();
     status.model_status.selected_summary_model = Some(model.clone());
+    status.model_status.transcription_engine = Some(transcription_provider);
 
     save_onboarding_status(&app, &status)
         .await

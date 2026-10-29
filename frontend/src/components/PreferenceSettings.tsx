@@ -2,10 +2,12 @@
 
 import { useEffect, useState, useRef } from "react"
 import { Switch } from "./ui/switch"
-import { FolderOpen } from "lucide-react"
+import { FolderOpen, RotateCcw } from "lucide-react"
 import { invoke } from "@tauri-apps/api/core"
+import { toast } from "sonner"
 import Analytics from "@/lib/analytics"
 import { useConfig, NotificationSettings } from "@/contexts/ConfigContext"
+import { useRecordingState } from "@/contexts/RecordingStateContext"
 
 export function PreferenceSettings() {
   const {
@@ -20,6 +22,22 @@ export function PreferenceSettings() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [previousNotificationsEnabled, setPreviousNotificationsEnabled] = useState<boolean | null>(null);
   const hasTrackedViewRef = useRef(false);
+  const { isRecording } = useRecordingState();
+  const [isRestartingSetup, setIsRestartingSetup] = useState(false);
+
+  // Clears the saved onboarding status; the app shows onboarding again after reloading.
+  // Meetings and downloaded models are kept.
+  const handleRunSetupAgain = async () => {
+    setIsRestartingSetup(true);
+    try {
+      await invoke('reset_onboarding_status_cmd');
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Failed to reset onboarding:', error);
+      toast.error('Could not restart setup', { description: String(error) });
+      setIsRestartingSetup(false);
+    }
+  };
 
   // Lazy load preferences on mount (only loads if not already cached)
   useEffect(() => {
@@ -216,6 +234,30 @@ export function PreferenceSettings() {
           <p className="text-xs text-blue-800">
             <strong>Note:</strong> Database and models are stored together in your application data directory for unified management.
           </p>
+        </div>
+      </div>
+
+      {/* Setup Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Setup</h3>
+            <p className="text-sm text-gray-600">
+              Go through onboarding again, for example to choose a different transcription model.
+              Your meetings and downloaded models are kept.
+            </p>
+            {isRecording && (
+              <p className="text-xs text-gray-500 mt-2">Available after the current recording ends.</p>
+            )}
+          </div>
+          <button
+            onClick={handleRunSetupAgain}
+            disabled={isRecording || isRestartingSetup}
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-100 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Run setup again
+          </button>
         </div>
       </div>
 

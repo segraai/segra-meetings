@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Info } from 'lucide-react';
+import { Check, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OnboardingContainer } from '../OnboardingContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -9,9 +9,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TRANSCRIPTION_ENGINE_OPTIONS, type TranscriptionEngine } from '@/lib/onboarding-transcription';
+
+const ENGINE_CHOICES: TranscriptionEngine[] = ['parakeet', 'localWhisper'];
 
 export function SetupOverviewStep() {
-  const { goNext } = useOnboarding();
+  const { goNext, transcriptionEngine, setTranscriptionEngine } = useOnboarding();
   const [isMac, setIsMac] = useState(false);
 
   useEffect(() => {
@@ -87,6 +90,47 @@ export function SetupOverviewStep() {
           </div>
         </div>
 
+        {/* Transcription engine choice */}
+        <div className="w-full max-w-md space-y-2">
+          <h3 className="text-sm font-medium text-gray-900">Transcription model</h3>
+          <div className="space-y-2" role="radiogroup" aria-label="Transcription model">
+            {ENGINE_CHOICES.map((engine) => {
+              const option = TRANSCRIPTION_ENGINE_OPTIONS[engine];
+              const selected = transcriptionEngine === engine;
+              return (
+                <button
+                  key={engine}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setTranscriptionEngine(engine)}
+                  className={`w-full text-left rounded-lg border p-3 flex items-start gap-3 transition-colors ${
+                    selected ? 'border-gray-900 bg-gray-50' : 'border-gray-200 bg-white hover:border-gray-400'
+                  }`}
+                >
+                  <div
+                    className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                      selected ? 'border-gray-900 bg-gray-900' : 'border-gray-300'
+                    }`}
+                  >
+                    {selected && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {option.label}
+                      {engine === 'parakeet' && <span className="ml-2 text-xs font-normal text-gray-500">Default</span>}
+                      <span className="ml-2 text-xs font-normal text-gray-500">~{option.sizeMb} MB</span>
+                    </p>
+                    <p className="text-xs text-gray-600 mt-0.5">{option.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-gray-500">
+            If you will record meetings in other languages, use Whisper. You can change this later in Settings.
+          </p>
+        </div>
 
         {/* CTA Section */}
         <div className="w-full max-w-xs space-y-4">
