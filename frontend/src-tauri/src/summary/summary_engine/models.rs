@@ -242,9 +242,53 @@ pub fn get_model_path(app_data_dir: &PathBuf, model_name: &str) -> Result<PathBu
     Ok(model_path)
 }
 
-/// Get the models directory path for built-in AI
+/// Get the models directory path for built-in AI.
+///
+/// Segra apps share one folder (`<data dir>/segra/models`), so a model
+/// Segra Desktop downloaded is ready here too, and the other way round. GGUF
+/// files from the old per-app folder move there once. If a move fails, the
+/// old folder stays in use so no model goes missing.
 pub fn get_models_directory(app_data_dir: &PathBuf) -> PathBuf {
-    app_data_dir.join("models").join("summary")
+    let legacy = app_data_dir.join("models").join("summary");
+    match shared_models_directory() {
+        Some(shared) if move_models(&legacy, &shared) => shared,
+        _ => legacy,
+    }
+}
+
+/// The folder Segra apps share for downloaded models.
+pub fn shared_models_directory() -> Option<PathBuf> {
+    dirs::data_dir().map(|dir| dir.join("segra").join("models"))
+}
+
+/// Moves `*.gguf` files from `from` into `to`. True when `to` is usable.
+fn move_models(from: &PathBuf, to: &PathBuf) -> bool {
+    if std::fs::create_dir_all(to).is_err() {
+        return false;
+    }
+    let Ok(entries) = std::fs::read_dir(from) else {
+        return true;
+    };
+    let mut all_moved = true;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("gguf") {
+            continue;
+        }
+        let target = to.join(entry.file_name());
+        if target.exists() {
+            continue;
+        }
+        if let Err(error) = std::fs::rename(&path, &target) {
+            log::warn!(
+                "Could not move {} to the shared models folder: {}",
+                path.display(),
+                error
+            );
+            all_moved = false;
+        }
+    }
+    all_moved
 }
 
 // ============================================================================
@@ -330,6 +374,30 @@ pub const GENERATION_TIMEOUT_SECS: u64 = 900; // 15 minutes
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn moves_models_into_the_shared_folder_once() {
+        let root = std::env::temp_dir().join(format!("segra-models-{}", std::process::id()));
+        let legacy = root.join("legacy");
+        let shared = root.join("shared");
+        std::fs::create_dir_all(&legacy).unwrap();
+        std::fs::write(legacy.join("a.gguf"), b"a").unwrap();
+        std::fs::write(legacy.join("notes.txt"), b"n").unwrap();
+        std::fs::create_dir_all(&shared).unwrap();
+        std::fs::write(shared.join("b.gguf"), b"shared").unwrap();
+        std::fs::write(legacy.join("b.gguf"), b"legacy").unwrap();
+
+        assert!(move_models(&legacy, &shared));
+        assert_eq!(std::fs::read(shared.join("a.gguf")).unwrap(), b"a");
+        assert!(!legacy.join("a.gguf").exists());
+        assert!(legacy.join("notes.txt").exists());
+        // An existing shared copy wins; the old one is left alone.
+        assert_eq!(std::fs::read(shared.join("b.gguf")).unwrap(), b"shared");
+        assert!(legacy.join("b.gguf").exists());
+        // No old folder at all is fine.
+        assert!(move_models(&root.join("missing"), &shared));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn qwen35_models_are_registered_with_expected_metadata() {
