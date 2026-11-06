@@ -172,7 +172,11 @@ export function SubscriptionCliSetup({ cli, model, onReadyChange }: Subscription
     return () => window.removeEventListener('focus', refresh);
   }, [refresh]);
 
-  const ready = !!status?.installed && !!status.loggedIn && status.usesSubscription;
+  const signedIn = !!status?.loggedIn && status.usesSubscription;
+  // Signed in with an API key: works, but billed per use, so it still needs a plan sign-in
+  const wrongAccount = !!status?.loggedIn && !status.usesSubscription;
+  // A working test counts as signed in, even when the status check can't confirm it
+  const ready = !!status?.installed && (signedIn || (test.state === 'ok' && !wrongAccount));
   useEffect(() => {
     onReadyChangeRef.current?.(ready);
   }, [ready]);
@@ -234,7 +238,7 @@ export function SubscriptionCliSetup({ cli, model, onReadyChange }: Subscription
     }
   };
 
-  const runTest = async () => {
+  const runTest = useCallback(async () => {
     setTest({ state: 'running' });
     try {
       await invoke<string>('subscription_cli_test', { cli, model });
@@ -242,7 +246,19 @@ export function SubscriptionCliSetup({ cli, model, onReadyChange }: Subscription
     } catch (error) {
       setTest({ state: 'error', message: String(error) });
     }
-  };
+  }, [cli, model]);
+
+  // When the status check doesn't confirm a sign-in, try the CLI once before asking
+  // the user to sign in: it may already work
+  const autoTested = useRef(false);
+  useEffect(() => {
+    autoTested.current = false;
+  }, [cli]);
+  useEffect(() => {
+    if (!status?.installed || signedIn || wrongAccount || autoTested.current) return;
+    autoTested.current = true;
+    void runTest();
+  }, [status, signedIn, wrongAccount, runTest]);
 
   const openUrl = (url: string) => {
     invoke('open_external_url', { url }).catch(error => console.error('Failed to open link:', error));
@@ -292,16 +308,22 @@ export function SubscriptionCliSetup({ cli, model, onReadyChange }: Subscription
         )}
       </Step>
 
-      <Step number={2} title="Sign in" done={status.loggedIn && status.usesSubscription}>
+      <Step number={2} title="Sign in" done={ready}>
         {!status.installed ? (
           <p className="text-xs text-gray-500">Available once {info.toolName} is installed.</p>
-        ) : status.loggedIn && status.usesSubscription ? (
+        ) : signedIn ? (
           <p className="text-xs text-gray-600">
             Signed in{status.email ? ` as ${status.email}` : ''}{plan ? ` · ${plan} plan` : ''}.
           </p>
+        ) : ready ? (
+          <p className="text-xs text-gray-600">Already signed in: {info.toolName} answered the test.</p>
+        ) : test.state === 'running' && !wrongAccount ? (
+          <p className="flex items-center gap-2 text-xs text-gray-600">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking whether {info.toolName} is already signed in...
+          </p>
         ) : (
           <>
-            {status.loggedIn && !status.usesSubscription && (
+            {wrongAccount && (
               <p className="flex items-start gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 {info.wrongAccountWarning}
@@ -353,8 +375,8 @@ export function SubscriptionCliSetup({ cli, model, onReadyChange }: Subscription
       </Step>
 
       <Step number={3} title="Test it" done={test.state === 'ok'}>
-        {!ready ? (
-          <p className="text-xs text-gray-500">Available once you&apos;re signed in.</p>
+        {!status.installed ? (
+          <p className="text-xs text-gray-500">Available once {info.toolName} is installed.</p>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
             <Button type="button" size="sm" variant="outline" onClick={runTest} disabled={test.state === 'running'}>
