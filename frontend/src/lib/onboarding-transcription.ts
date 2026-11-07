@@ -18,14 +18,14 @@ export const TRANSCRIPTION_ENGINE_OPTIONS: Record<TranscriptionEngine, Transcrip
     model: 'parakeet-tdt-0.6b-v3-int8',
     label: 'Parakeet',
     sizeMb: 670,
-    description: 'Fast and accurate. The best choice for most meetings.',
+    description: 'Fastest, for English and other European languages.',
   },
   localWhisper: {
     engine: 'localWhisper',
     model: 'large-v3-turbo-q5_0',
     label: 'Whisper',
     sizeMb: 547,
-    description: 'Supports around 100 languages. A little slower than Parakeet.',
+    description: 'For meetings in other languages. Works great in around 100 languages.',
   },
 };
 

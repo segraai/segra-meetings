@@ -10,12 +10,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { TRANSCRIPTION_ENGINE_OPTIONS, type TranscriptionEngine } from '@/lib/onboarding-transcription';
+import { TRANSCRIPTION_LANGUAGES } from '@/lib/transcription-languages';
 
 const ENGINE_CHOICES: TranscriptionEngine[] = ['parakeet', 'localWhisper'];
 
 export function SetupOverviewStep() {
   const { goNext, transcriptionEngine, setTranscriptionEngine } = useOnboarding();
   const [isMac, setIsMac] = useState(false);
+  const languages = TRANSCRIPTION_LANGUAGES[transcriptionEngine];
 
   useEffect(() => {
     const checkPlatform = async () => {
@@ -90,46 +92,66 @@ export function SetupOverviewStep() {
           </div>
         </div>
 
-        {/* Transcription engine choice */}
-        <div className="w-full max-w-md space-y-2">
-          <h3 className="text-sm font-medium text-gray-900">Transcription model</h3>
-          <div className="space-y-2" role="radiogroup" aria-label="Transcription model">
-            {ENGINE_CHOICES.map((engine) => {
-              const option = TRANSCRIPTION_ENGINE_OPTIONS[engine];
-              const selected = transcriptionEngine === engine;
-              return (
-                <button
-                  key={engine}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setTranscriptionEngine(engine)}
-                  className={`w-full text-left rounded-lg border p-3 flex items-start gap-3 transition-colors ${
-                    selected ? 'border-gray-900 bg-gray-50' : 'border-gray-200 bg-white hover:border-gray-400'
-                  }`}
-                >
-                  <div
-                    className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
-                      selected ? 'border-gray-900 bg-gray-900' : 'border-gray-300'
+        {/* Transcription engine choice, with the chosen engine's languages beside it */}
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-gray-900">Transcription model</h3>
+            <div className="space-y-2" role="radiogroup" aria-label="Transcription model">
+              {ENGINE_CHOICES.map((engine) => {
+                const option = TRANSCRIPTION_ENGINE_OPTIONS[engine];
+                const selected = transcriptionEngine === engine;
+                return (
+                  <button
+                    key={engine}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setTranscriptionEngine(engine)}
+                    className={`w-full text-left rounded-lg border p-3 flex items-start gap-3 transition-colors ${
+                      selected ? 'border-gray-900 bg-gray-50' : 'border-gray-200 bg-white hover:border-gray-400'
                     }`}
                   >
-                    {selected && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {option.label}
-                      {engine === 'parakeet' && <span className="ml-2 text-xs font-normal text-gray-500">Default</span>}
-                      <span className="ml-2 text-xs font-normal text-gray-500">~{option.sizeMb} MB</span>
-                    </p>
-                    <p className="text-xs text-gray-600 mt-0.5">{option.description}</p>
-                  </div>
-                </button>
-              );
-            })}
+                    <div
+                      className={`mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${
+                        selected ? 'border-gray-900 bg-gray-900' : 'border-gray-300'
+                      }`}
+                    >
+                      {selected && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {option.label}
+                        {engine === 'parakeet' && <span className="ml-2 text-xs font-normal text-gray-500">Default</span>}
+                        <span className="ml-2 text-xs font-normal text-gray-500">~{option.sizeMb} MB</span>
+                      </p>
+                      <p className="text-xs text-gray-600 mt-0.5">{option.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500">
+              You can change this later in Settings.
+            </p>
           </div>
-          <p className="text-xs text-gray-500">
-            If you will record meetings in other languages, use Whisper. You can change this later in Settings.
-          </p>
+
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-gray-900">
+              {TRANSCRIPTION_ENGINE_OPTIONS[transcriptionEngine].label} languages ({languages.length})
+            </h3>
+            <ul className="h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 space-y-1">
+              {languages.map((language) => (
+                <li key={language.code} className="flex items-center gap-2 text-xs text-gray-700">
+                  <span className="w-4 flex-shrink-0">
+                    {language.flag && (
+                      <img src={`/flags/${language.flag}.svg`} alt="" className="h-3 w-4 rounded-[1px] object-cover" />
+                    )}
+                  </span>
+                  {language.name}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         {/* CTA Section */}
