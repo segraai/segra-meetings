@@ -100,6 +100,15 @@ jobs:
           echo "OPENSSL_ROOT_DIR=$PREFIX" >> "$GITHUB_ENV"
           echo "PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
 
+      # llama.cpp's Vulkan shader generator fails to build with the runner's CMake 4.4
+      # ("Not a file: .../vulkan-shaders-gen-build/cmake_install.cmake"). 4.2 is the
+      # oldest CMake that knows Visual Studio 2026.
+      - name: Use CMake 4.2
+        if: runner.os == 'Windows'
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: "4.2.8"
+
       - name: Install Vulkan SDK
         if: runner.os == 'Windows'
         uses: humbletim/install-vulkan-sdk@v1.2
