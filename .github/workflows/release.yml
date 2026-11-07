@@ -37,7 +37,9 @@ jobs:
             args: --target x86_64-apple-darwin
             llama-features: ""
           - name: Windows
-            os: windows-latest
+            # Visual Studio 2022. windows-latest now ships Visual Studio 2026, whose MSBuild
+            # breaks llama.cpp's Vulkan build (vulkan-shaders-gen cmake_install.cmake errors).
+            os: windows-2022
             target: x86_64-pc-windows-msvc
             args: --features vulkan
             # Uses a dedicated GPU when there is one, the CPU otherwise
@@ -99,25 +101,6 @@ jobs:
           PREFIX=$(brew --prefix openssl@3)
           echo "OPENSSL_ROOT_DIR=$PREFIX" >> "$GITHUB_ENV"
           echo "PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
-
-      # Build native code with Ninja instead of MSBuild: Visual Studio 2026's MSBuild runs
-      # llama.cpp's vulkan-shaders-gen steps twice in parallel, and the build fails with
-      # "Not a file: .../vulkan-shaders-gen-build/cmake_install.cmake". The developer
-      # shell puts cl.exe and Visual Studio's bundled Ninja on PATH.
-      - name: Set up MSVC developer shell
-        if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Use Ninja for CMake
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          ninja --version
-          echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
-          # Git Bash's coreutils `link` would shadow MSVC's link.exe in bash steps
-          rm -f /usr/bin/link.exe /usr/bin/link
 
       - name: Install Vulkan SDK
         if: runner.os == 'Windows'
