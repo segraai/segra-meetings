@@ -42,9 +42,6 @@ jobs:
             args: --features vulkan
             # Uses a dedicated GPU when there is one, the CPU otherwise
             llama-features: --features vulkan
-            # One build job: with parallel MSBuild nodes, llama.cpp's vulkan-shaders-gen
-            # steps race ("Not a file: .../vulkan-shaders-gen-build/cmake_install.cmake")
-            llama-jobs: -j 1
           - name: Linux
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -138,7 +135,14 @@ jobs:
       - name: Build llama-helper sidecar
         shell: bash
         run: |
-          cargo build --release -p llama-helper ${{ matrix.llama-features }} ${{ matrix.llama-jobs }}
+          # On Windows, llama.cpp's vulkan-shaders-gen steps can race in parallel MSBuild
+          # ("Not a file: .../vulkan-shaders-gen-build/cmake_install.cmake"); the steps that
+          # lost the race are done by then, so building again succeeds.
+          for attempt in 1 2 3; do
+            cargo build --release -p llama-helper ${{ matrix.llama-features }} && break
+            [[ $attempt == 3 ]] && exit 1
+            echo "::warning::llama-helper build failed (attempt $attempt), retrying"
+          done
           mkdir -p frontend/src-tauri/binaries
           EXT=""; [[ "$RUNNER_OS" == "Windows" ]] && EXT=".exe"
           cp "target/release/llama-helper${EXT}" "frontend/src-tauri/binaries/llama-helper-${{ matrix.target }}${EXT}"
