@@ -100,14 +100,22 @@ jobs:
           echo "OPENSSL_ROOT_DIR=$PREFIX" >> "$GITHUB_ENV"
           echo "PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig" >> "$GITHUB_ENV"
 
-      # llama.cpp's Vulkan shader generator fails to build with the runner's CMake 4.4
-      # ("Not a file: .../vulkan-shaders-gen-build/cmake_install.cmake"). 4.2 is the
-      # oldest CMake that knows Visual Studio 2026.
-      - name: Use CMake 4.2
+      # Build native code with Ninja instead of MSBuild: Visual Studio 2026's MSBuild runs
+      # llama.cpp's vulkan-shaders-gen steps twice in parallel, and the build fails with
+      # "Not a file: .../vulkan-shaders-gen-build/cmake_install.cmake". The developer
+      # shell puts cl.exe and Visual Studio's bundled Ninja on PATH.
+      - name: Set up MSVC developer shell
         if: runner.os == 'Windows'
-        uses: jwlawson/actions-setup-cmake@v2
+        uses: ilammy/msvc-dev-cmd@v1
         with:
-          cmake-version: "4.2.8"
+          arch: x64
+
+      - name: Use Ninja for CMake
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          ninja --version
+          echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
 
       - name: Install Vulkan SDK
         if: runner.os == 'Windows'
