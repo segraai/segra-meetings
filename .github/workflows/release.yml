@@ -37,13 +37,14 @@ jobs:
             args: --target x86_64-apple-darwin
             llama-features: ""
           - name: Windows
-            # Visual Studio 2022. windows-latest now ships Visual Studio 2026, whose MSBuild
-            # breaks llama.cpp's Vulkan build (vulkan-shaders-gen cmake_install.cmake errors).
-            os: windows-2022
+            os: windows-latest
             target: x86_64-pc-windows-msvc
             args: --features vulkan
             # Uses a dedicated GPU when there is one, the CPU otherwise
             llama-features: --features vulkan
+            # One build job: with parallel MSBuild nodes, llama.cpp's vulkan-shaders-gen
+            # steps race ("Not a file: .../vulkan-shaders-gen-build/cmake_install.cmake")
+            llama-jobs: -j 1
           - name: Linux
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -137,7 +138,7 @@ jobs:
       - name: Build llama-helper sidecar
         shell: bash
         run: |
-          cargo build --release -p llama-helper ${{ matrix.llama-features }}
+          cargo build --release -p llama-helper ${{ matrix.llama-features }} ${{ matrix.llama-jobs }}
           mkdir -p frontend/src-tauri/binaries
           EXT=""; [[ "$RUNNER_OS" == "Windows" ]] && EXT=".exe"
           cp "target/release/llama-helper${EXT}" "frontend/src-tauri/binaries/llama-helper-${{ matrix.target }}${EXT}"
