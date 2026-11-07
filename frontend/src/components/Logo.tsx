@@ -22,7 +22,7 @@ const Logo = React.forwardRef<HTMLButtonElement, LogoProps>(
               aria-label={`About ${APP_NAME} ${APP_TAG}`}
             >
               <Image
-                src="/logo-collapsed.png"
+                src="/app-logo.png"
                 alt={APP_NAME}
                 width={40}
                 height={40}
@@ -40,7 +40,7 @@ const Logo = React.forwardRef<HTMLButtonElement, LogoProps>(
               aria-label={`About ${APP_NAME} ${APP_TAG}`}
             >
               <Image
-                src="/logo-collapsed.png"
+                src="/app-logo.png"
                 alt=""
                 width={24}
                 height={24}
