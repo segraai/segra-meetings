@@ -116,6 +116,8 @@ jobs:
         run: |
           ninja --version
           echo "CMAKE_GENERATOR=Ninja" >> "$GITHUB_ENV"
+          # Git Bash's coreutils `link` would shadow MSVC's link.exe in bash steps
+          rm -f /usr/bin/link.exe /usr/bin/link
 
       - name: Install Vulkan SDK
         if: runner.os == 'Windows'
